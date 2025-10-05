@@ -209,7 +209,7 @@ func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string,
 		contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.bootstrap.neighbor=%s", strings.Join(neighbors, ",")))
 	}
 	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.name=%s", hostname))
-	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.interface=%s:%d", getCurrentHostname(), discoveryPort))
+	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.interface=%s:%d", hostname, discoveryPort))
 	content := strings.Join(contentLines, "\n") + "\n"
 
 	// Write the file
@@ -252,8 +252,8 @@ func main() {
 	}
 
 	if len(pods) == 0 {
-		log.Println("No suitable media driver pods found. Exiting without creating bootstrap file.")
-		os.Exit(0)
+		log.Println("Error: No suitable media driver pods found. Exiting without creating bootstrap file.")
+		os.Exit(1)
 	}
 
 	// Extract IPs from pods (already sorted oldest to newest)

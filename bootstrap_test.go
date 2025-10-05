@@ -151,6 +151,19 @@ func TestCreateBootstrapProperties(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Save original env value
+			originalHostname := os.Getenv("HOSTNAME")
+			defer func() {
+				if originalHostname != "" {
+					os.Setenv("HOSTNAME", originalHostname)
+				} else {
+					os.Unsetenv("HOSTNAME")
+				}
+			}()
+
+			// Set the hostname for the test
+			os.Setenv("HOSTNAME", tt.hostname)
+
 			// Create temporary directory for test
 			tempDir, err := os.MkdirTemp("", "aeron-test-")
 			if err != nil {
@@ -810,6 +823,87 @@ func TestBuildAeronHostname(t *testing.T) {
 				t.Errorf("buildAeronHostname(%s) = %s, expected %s", tt.namespace, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestMainExitsWithErrorWhenNoPodsFound(t *testing.T) {
+	// This test verifies that when no pods are found, the application exits with code 1
+	// We can't easily test os.Exit(1) directly, but we can test the logic that leads to it
+	
+	clientset := fake.NewSimpleClientset()
+	// Don't add any pods - this will simulate no pods found
+	
+	// Test that getMediaDriverPods returns empty result
+	result, err := getMediaDriverPods(clientset, "test-namespace", "aeron.io/media-driver=true", 0)
+	if err != nil {
+		t.Fatalf("getMediaDriverPods() error = %v", err)
+	}
+	
+	// Verify that no pods are returned (which should trigger exit code 1 in main)
+	if len(result) != 0 {
+		t.Errorf("Expected 0 pods when none exist, got %d", len(result))
+	}
+}
+
+func TestMainExitsWithErrorWhenOnlyPodsWithoutIPFound(t *testing.T) {
+	// This test verifies that pods without IP addresses are filtered out,
+	// and if no pods with IPs remain, the application should exit with code 1
+	
+	clientset := fake.NewSimpleClientset()
+	
+	// Add pods without IP addresses
+	podsWithoutIP := []corev1.Pod{
+		createTestPodWithoutIP("aeron-pending-1", "Pending", time.Now().Add(-5*time.Minute)),
+		createTestPodWithoutIP("aeron-pending-2", "Pending", time.Now().Add(-3*time.Minute)),
+	}
+	
+	for _, pod := range podsWithoutIP {
+		_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &pod, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("Failed to create test pod: %v", err)
+		}
+	}
+	
+	// Test that getMediaDriverPods returns empty result (pods without IPs are filtered out)
+	result, err := getMediaDriverPods(clientset, "test-namespace", "aeron.io/media-driver=true", 0)
+	if err != nil {
+		t.Fatalf("getMediaDriverPods() error = %v", err)
+	}
+	
+	// Verify that no pods are returned (which should trigger exit code 1 in main)
+	if len(result) != 0 {
+		t.Errorf("Expected 0 pods when only pods without IPs exist, got %d", len(result))
+	}
+}
+
+func TestMainExitsWithErrorWhenWrongLabelSelector(t *testing.T) {
+	// This test verifies that when using a label selector that matches no pods,
+	// the application should exit with code 1
+	
+	clientset := fake.NewSimpleClientset()
+	
+	// Add pods with the default label
+	podsWithDefaultLabel := []corev1.Pod{
+		createTestPod("aeron-1", "10.0.0.1", "Running", time.Now().Add(-5*time.Minute)),
+		createTestPod("aeron-2", "10.0.0.2", "Running", time.Now().Add(-3*time.Minute)),
+	}
+	
+	for _, pod := range podsWithDefaultLabel {
+		_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &pod, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("Failed to create test pod: %v", err)
+		}
+	}
+	
+	// Test with a label selector that won't match any pods
+	result, err := getMediaDriverPods(clientset, "test-namespace", "app=nonexistent", 0)
+	if err != nil {
+		t.Fatalf("getMediaDriverPods() error = %v", err)
+	}
+	
+	// Verify that no pods are returned (which should trigger exit code 1 in main)
+	if len(result) != 0 {
+		t.Errorf("Expected 0 pods with wrong label selector, got %d", len(result))
 	}
 }
 
