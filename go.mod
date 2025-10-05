@@ -1,4 +1,4 @@
-module jmips.co.uk/aeron-md-bootstrap
+module jmips.co.uk/aeron-k8s-bootstrap
 
 go 1.24
 

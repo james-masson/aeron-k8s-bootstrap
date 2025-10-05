@@ -50,7 +50,7 @@ spec:
     spec:
       initContainers:
         - name: aeron-bootstrap
-          image: jmips/aeronmd-bootstrap
+          image: jmips/aeron-k8s-bootstrap
           imagePullPolicy: IfNotPresent
 
           env:

@@ -6,11 +6,11 @@ WORKDIR /app
 COPY go.mod ./
 
 # Copy source code
-COPY aeron-md-bootstrap.go ./
+COPY aeron-k8s-bootstrap.go ./
 
 # Download dependencies and build the binary
 RUN go mod tidy && \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o aeron-md-bootstrap .
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o aeron-k8s-bootstrap .
 
 # Final stage - minimal runtime image
 FROM alpine:latest
@@ -21,7 +21,7 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the binary from builder stage
-COPY --from=builder /app/aeron-md-bootstrap .
+COPY --from=builder /app/aeron-k8s-bootstrap .
 
 # Create the aeron directory
 RUN mkdir -p /etc/aeron
@@ -30,4 +30,4 @@ RUN mkdir -p /etc/aeron
 RUN adduser -D -s /bin/sh aeron
 USER aeron
 
-ENTRYPOINT ["./aeron-md-bootstrap"]
+ENTRYPOINT ["./aeron-k8s-bootstrap"]
