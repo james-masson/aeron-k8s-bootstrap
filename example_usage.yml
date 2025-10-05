@@ -50,7 +50,7 @@ spec:
     spec:
       initContainers:
         - name: aeron-bootstrap
-          image: jmips/aeronmd-bootstrap
+          image: jmips/aeron-k8s-bootstrap
           imagePullPolicy: IfNotPresent
 
           env:
@@ -66,8 +66,8 @@ spec:
         # Example container that does nothing, as a placeholder for Aeron code.
         - name: example-aeron
           image: ubuntu
-          command: ["sleep"]
-          args: ["infinity"]
+          command: ["/bin/bash"]
+          args: ["-c", "trap : TERM INT; sleep infinity & wait"]
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - mountPath: /etc/aeron
