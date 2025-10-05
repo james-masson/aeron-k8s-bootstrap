@@ -1,4 +1,5 @@
 on:
+  workflow_dispatch:
   release:
     types: [created]
 
@@ -16,8 +17,10 @@ jobs:
         with:
           go-version: "^1.24" # The Go version to download (if necessary) and use.
       - run: go test -v
-      - run: go build
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload the Rodeo binaries
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: aeron-k8s-bootstrap
-          path: aeron-k8s-bootstrap
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          file: aeron-k8s-bootstrap
