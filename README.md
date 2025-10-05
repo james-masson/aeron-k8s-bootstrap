@@ -11,9 +11,9 @@ The utility generates an Aeron configuration file, which must be added to config
 While static Aeron installations tend to use DNS to identify media-drivers, modern systems tend to be more dynamic than this, and services can change IP address frequently.
 This leads to DNS being updated frequently, and DNS TTL/caching issues can get in the way.
 
-Service Discovery mechanisms built on [Zookeeper](https://cloud.spring.io/spring-cloud-zookeeper/1.2.x/multi/multi_spring-cloud-zookeeper-discovery.html), [Consul](https://developer.hashicorp.com/consul/docs/use-case/service-discovery) and [Kubernetes](https://kubernetes.io/docs/concepts/overview/kubernetes-api/) are now the standard way to discover services.
+Service Discovery mechanisms like [Zookeeper](https://cloud.spring.io/spring-cloud-zookeeper/1.2.x/multi/multi_spring-cloud-zookeeper-discovery.html), [Consul](https://developer.hashicorp.com/consul/docs/use-case/service-discovery) and [Kubernetes](https://kubernetes.io/docs/concepts/overview/kubernetes-api/) are now the standard way to discover services in most corporate environments.
 
-Aeron has the concept of distributing it's own name/IP lookup information via gossip protocol. It only needs three things to work.
+Aeron has the concept of distributing it's own name/IP lookup information via gossip protocol. It only needs a few things to work.
 
 1. To be enabled
 2. To be given a list of initial bootstrap peers to gossip with.
@@ -30,7 +30,7 @@ By default, it...
 * generates a bootstrap hosts list for Aeron media driver gossip of these 3 IPs.
 * generates a local media driver name in the format `<pod-name>.<namespace>.aeron`
 
-All this configuration is written to a configuration file (default `/etc/aeron/bootstrap.properties`), which your media-driver process needs to load.
+All this configuration is written to a java properties file (default `/etc/aeron/bootstrap.properties`), *which your media-driver process needs to load*.
 
 ## Assumptions made
 
@@ -70,7 +70,7 @@ kubectl apply -f example_usage.yml
 ## Things to be aware of.
 
 IPs in frequently updated Kubernetes environments may get re-used. The IP that hosts a Aeron cluster node in a CI environment one moment may be re-used in an unrelated Aeron install the next minute.
-This code generates Aeron hostnames in the format "<pod-name>.<namespace>.aeron" by default, to make sure you're talking to the media-driver you think you are.
+This code generates Aeron hostnames in the format `<pod-name>.<namespace>.aeron` by default, to make sure you're talking to the media-driver you think you are.
 
 
 ## Aeron project implementation, low latency performance tuning and consulting
@@ -78,4 +78,6 @@ This code generates Aeron hostnames in the format "<pod-name>.<namespace>.aeron"
 Also available, Aeron Operator for K8s.
 
 Contact me via https://www.jmips.co.uk/contact
+
+Copyright © JMIPS Ltd 2025
 
