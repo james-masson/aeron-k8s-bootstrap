@@ -17,8 +17,8 @@ jobs:
         with:
           go-version: "^1.24" # The Go version to download (if necessary) and use.
       - run: go test -v
-
-      - name: Upload the Rodeo binaries
+      - run: CGO_ENABLED=0 GOOS=linux go build
+      - name: Upload binary
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
