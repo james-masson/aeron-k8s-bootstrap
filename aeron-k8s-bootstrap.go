@@ -179,20 +179,21 @@ func buildAeronHostname(namespace string) string {
 }
 
 // createBootstrapProperties creates the bootstrap properties file with all neighbor IPs
-func createBootstrapProperties(neighborIPs []string, discoveryPort int, hostname string) error {
+func createBootstrapProperties(neighborIPs []string, discoveryPort int, fullHostname string) error {
 	bootstrapPath := getBootstrapPath()
 	dir := filepath.Dir(bootstrapPath)
-	return createBootstrapPropertiesAtPath(dir, bootstrapPath, neighborIPs, discoveryPort, hostname)
+	shortHostname := getCurrentHostname()
+	return createBootstrapPropertiesAtPath(dir, bootstrapPath, neighborIPs, discoveryPort, fullHostname, shortHostname)
 }
 
 // createBootstrapPropertiesInDir creates the bootstrap properties file in a specified directory (for testing)
-func createBootstrapPropertiesInDir(dir string, neighborIPs []string, discoveryPort int, hostname string) error {
+func createBootstrapPropertiesInDir(dir string, neighborIPs []string, discoveryPort int, fullHostname, shortHostname string) error {
 	filePath := filepath.Join(dir, "bootstrap.properties")
-	return createBootstrapPropertiesAtPath(dir, filePath, neighborIPs, discoveryPort, hostname)
+	return createBootstrapPropertiesAtPath(dir, filePath, neighborIPs, discoveryPort, fullHostname, shortHostname)
 }
 
 // createBootstrapPropertiesAtPath creates the bootstrap properties file at a specified path
-func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string, discoveryPort int, hostname string) error {
+func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string, discoveryPort int, fullHostname, shortHostname string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %v", dir, err)
 	}
@@ -208,8 +209,8 @@ func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string,
 	if len(neighbors) > 0 {
 		contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.bootstrap.neighbor=%s", strings.Join(neighbors, ",")))
 	}
-	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.name=%s", hostname))
-	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.interface=%s:%d", hostname, discoveryPort))
+	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.name=%s", fullHostname))
+	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.interface=%s:%d", shortHostname, discoveryPort))
 	content := strings.Join(contentLines, "\n") + "\n"
 
 	// Write the file
@@ -218,9 +219,9 @@ func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string,
 	}
 
 	if len(neighbors) > 0 {
-		log.Printf("Created %s with bootstrap neighbors: %s, media-driver name: %s:%d", filePath, strings.Join(neighbors, ","), hostname, discoveryPort)
+		log.Printf("Created %s with bootstrap neighbors: %s, media-driver name: %s, interface: %s:%d", filePath, strings.Join(neighbors, ","), fullHostname, shortHostname, discoveryPort)
 	} else {
-		log.Printf("Created %s with media-driver name: %s:%d (no neighbors found)", filePath, hostname, discoveryPort)
+		log.Printf("Created %s with media-driver name: %s, interface: %s:%d (no neighbors found)", filePath, fullHostname, shortHostname, discoveryPort)
 	}
 
 	return nil

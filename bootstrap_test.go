@@ -174,7 +174,7 @@ func TestCreateBootstrapProperties(t *testing.T) {
 			// Use the testable function with custom directory
 			aeronDir := filepath.Join(tempDir, "aeron")
 
-			err = createBootstrapPropertiesInDir(aeronDir, tt.neighborIPs, tt.discoveryPort, tt.hostname)
+			err = createBootstrapPropertiesInDir(aeronDir, tt.neighborIPs, tt.discoveryPort, tt.hostname, tt.hostname)
 			if err != nil {
 				t.Fatalf("createBootstrapProperties() error = %v", err)
 			}
@@ -222,7 +222,7 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=10.0.0.1:8050,10.0.0.2:8050",
 				"aeron.driver.resolver.name=server1.uat.aeron",
-				"aeron.driver.resolver.interface=server1.uat.aeron:8050",
+				"aeron.driver.resolver.interface=server1:8050",
 			},
 		},
 		{
@@ -235,7 +235,7 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=192.168.1.10:9090",
 				"aeron.driver.resolver.name=aeron-md-1.production.cluster",
-				"aeron.driver.resolver.interface=aeron-md-1.production.cluster:9090",
+				"aeron.driver.resolver.interface=aeron-md-1:9090",
 			},
 		},
 	}
@@ -275,7 +275,7 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 			// Build the full hostname with namespace
 			fullHostname := buildAeronHostname(tt.namespace)
 			
-			err = createBootstrapPropertiesInDir(aeronDir, tt.neighborIPs, tt.discoveryPort, fullHostname)
+			err = createBootstrapPropertiesInDir(aeronDir, tt.neighborIPs, tt.discoveryPort, fullHostname, tt.podHostname)
 			if err != nil {
 				t.Fatalf("createBootstrapProperties() error = %v", err)
 			}
@@ -904,6 +904,81 @@ func TestMainExitsWithErrorWhenWrongLabelSelector(t *testing.T) {
 	// Verify that no pods are returned (which should trigger exit code 1 in main)
 	if len(result) != 0 {
 		t.Errorf("Expected 0 pods with wrong label selector, got %d", len(result))
+	}
+}
+
+func TestResolverInterfaceUsesShortHostname(t *testing.T) {
+	tests := []struct {
+		name          string
+		neighborIPs   []string
+		discoveryPort int
+		fullHostname  string
+		shortHostname string
+		expectedLines []string
+	}{
+		{
+			name:          "resolver.interface uses short hostname",
+			neighborIPs:   []string{"10.0.0.1", "10.0.0.2"},
+			discoveryPort: 8050,
+			fullHostname:  "server1.uat.aeron",
+			shortHostname: "server1",
+			expectedLines: []string{
+				"aeron.driver.resolver.bootstrap.neighbor=10.0.0.1:8050,10.0.0.2:8050",
+				"aeron.driver.resolver.name=server1.uat.aeron",
+				"aeron.driver.resolver.interface=server1:8050",
+			},
+		},
+		{
+			name:          "production with custom suffix - interface still short",
+			neighborIPs:   []string{"192.168.1.10"},
+			discoveryPort: 9090,
+			fullHostname:  "aeron-md-1.production.cluster",
+			shortHostname: "aeron-md-1",
+			expectedLines: []string{
+				"aeron.driver.resolver.bootstrap.neighbor=192.168.1.10:9090",
+				"aeron.driver.resolver.name=aeron-md-1.production.cluster",
+				"aeron.driver.resolver.interface=aeron-md-1:9090",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory for test
+			tempDir, err := os.MkdirTemp("", "aeron-interface-test-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tempDir)
+
+			// Use the testable function with custom directory
+			aeronDir := filepath.Join(tempDir, "aeron")
+
+			err = createBootstrapPropertiesInDir(aeronDir, tt.neighborIPs, tt.discoveryPort, tt.fullHostname, tt.shortHostname)
+			if err != nil {
+				t.Fatalf("createBootstrapProperties() error = %v", err)
+			}
+
+			// Read the created file
+			filePath := filepath.Join(aeronDir, "bootstrap.properties")
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("Failed to read bootstrap properties file: %v", err)
+			}
+
+			lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+
+			if len(lines) != len(tt.expectedLines) {
+				t.Errorf("Expected %d lines, got %d. Content:\n%s", len(tt.expectedLines), len(lines), string(content))
+				return
+			}
+
+			for i, line := range lines {
+				if line != tt.expectedLines[i] {
+					t.Errorf("Line %d: got '%s', expected '%s'", i, line, tt.expectedLines[i])
+				}
+			}
+		})
 	}
 }
 
