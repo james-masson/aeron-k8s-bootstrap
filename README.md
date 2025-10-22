@@ -50,7 +50,7 @@ Your media driver code expects to load `/etc/aeron/bootstrap.properties` ( path 
 ## Building the container
 
 ```
-docker build -t jmips/aeronmd-bootstrap .
+docker build -t jmips/aeron-k8s-bootstrap .
 ```
 
 ## Build & Test
