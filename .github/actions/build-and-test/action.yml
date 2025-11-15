@@ -24,6 +24,7 @@ runs:
       with:
         context: .
         file: Dockerfile-aeronmd
+        load: true
         tags: jmips/aeronmd:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -33,6 +34,7 @@ runs:
       with:
         context: .
         file: Dockerfile
+        load: true
         tags: jmips/aeron-k8s-bootstrap:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
