@@ -1,0 +1,55 @@
+name: "Build and Test"
+description: "Run tests and build the Go binary"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+
+    - uses: actions/setup-go@v6
+      with:
+        go-version: "^1.24"
+
+    - name: Run unit tests
+      shell: bash
+      run: go test -v
+
+    - name: Build
+      shell: bash
+      run: CGO_ENABLED=0 GOOS=linux go build
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build AeronMD container
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: Dockerfile-aeronmd
+        tags: jmips/aeronmd:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build aeron-k8s-bootstrap container
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: Dockerfile
+        tags: jmips/aeron-k8s-bootstrap:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Start minikube
+      uses: medyagh/setup-minikube@latest
+
+    - name: Copy containers to minikube
+      shell: bash
+      run: minikube image load jmips/aeron-k8s-bootstrap && minikube image load jmips/aeronmd
+
+    - name: Deploy to minikube
+      shell: bash
+      run: kubectl apply -f example_usage.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+
+    - name: Test bootstrapping
+      shell: bash
+      run: ./check_bootstrap_success.sh
