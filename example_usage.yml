@@ -60,9 +60,9 @@ spec:
     spec:
       initContainers:
         - name: aeron-k8s-bootstrap
-          image: jmips/aeron-k8s-bootstrap
+          image: ghcr.io/james-masson/aeron-k8s-bootstrap/aeron-k8s-bootstrap:latest
+          # Don't pull, as we pre-build/pre-load the images for CI
           imagePullPolicy: Never
-
           env:
             # example config to alter discovery process goes here
             - name: AERON_MD_DISCOVERY_PORT
@@ -78,10 +78,11 @@ spec:
       containers:
         # Aeron Media Driver
         - name: media-driver
-          image: jmips/aeronmd
+          image: ghcr.io/james-masson/aeron-k8s-bootstrap/aeronmd:latest
           args:
             - /etc/aeron/bootstrap.properties
             - /etc/aeron/aeron.properties
+          # Don't pull, as we pre-build/pre-load the images for CI
           imagePullPolicy: Never
           volumeMounts:
             - mountPath: /etc/aeron
