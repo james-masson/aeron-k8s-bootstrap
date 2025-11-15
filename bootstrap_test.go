@@ -121,6 +121,7 @@ func TestCreateBootstrapProperties(t *testing.T) {
 			discoveryPort: 8050,
 			hostname:      "test-host",
 			expectedLines: []string{
+				"aeron.name.resolver.supplier=driver",
 				"aeron.driver.resolver.name=test-host",
 				"aeron.driver.resolver.interface=test-host:8050",
 			},
@@ -132,6 +133,7 @@ func TestCreateBootstrapProperties(t *testing.T) {
 			hostname:      "test-host",
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=10.0.0.1:8050",
+				"aeron.name.resolver.supplier=driver",
 				"aeron.driver.resolver.name=test-host",
 				"aeron.driver.resolver.interface=test-host:8050",
 			},
@@ -143,6 +145,7 @@ func TestCreateBootstrapProperties(t *testing.T) {
 			hostname:      "aeron-pod-123",
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=10.0.0.1:9090,10.0.0.2:9090,10.0.0.3:9090",
+				"aeron.name.resolver.supplier=driver",
 				"aeron.driver.resolver.name=aeron-pod-123",
 				"aeron.driver.resolver.interface=aeron-pod-123:9090",
 			},
@@ -221,6 +224,7 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 			suffix:        ".aeron",
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=10.0.0.1:8050,10.0.0.2:8050",
+				"aeron.name.resolver.supplier=driver",
 				"aeron.driver.resolver.name=server1.uat.aeron",
 				"aeron.driver.resolver.interface=server1:8050",
 			},
@@ -234,6 +238,7 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 			suffix:        ".cluster",
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=192.168.1.10:9090",
+				"aeron.name.resolver.supplier=driver",
 				"aeron.driver.resolver.name=aeron-md-1.production.cluster",
 				"aeron.driver.resolver.interface=aeron-md-1:9090",
 			},
@@ -924,6 +929,7 @@ func TestResolverInterfaceUsesShortHostname(t *testing.T) {
 			shortHostname: "server1",
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=10.0.0.1:8050,10.0.0.2:8050",
+				"aeron.name.resolver.supplier=driver",
 				"aeron.driver.resolver.name=server1.uat.aeron",
 				"aeron.driver.resolver.interface=server1:8050",
 			},
@@ -936,6 +942,7 @@ func TestResolverInterfaceUsesShortHostname(t *testing.T) {
 			shortHostname: "aeron-md-1",
 			expectedLines: []string{
 				"aeron.driver.resolver.bootstrap.neighbor=192.168.1.10:9090",
+				"aeron.name.resolver.supplier=driver",
 				"aeron.driver.resolver.name=aeron-md-1.production.cluster",
 				"aeron.driver.resolver.interface=aeron-md-1:9090",
 			},
