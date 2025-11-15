@@ -16,35 +16,37 @@ runs:
       shell: bash
       run: CGO_ENABLED=0 GOOS=linux go build
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build AeronMD container
-      uses: docker/build-push-action@v6
+    - name: Restore Docker cache
+      uses: actions/cache/restore@v4
+      id: docker-cache
       with:
-        context: .
-        file: Dockerfile-aeronmd
-        load: true
-        tags: jmips/aeronmd:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    - name: Build aeron-k8s-bootstrap container
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: Dockerfile
-        load: true
-        tags: jmips/aeron-k8s-bootstrap:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        path: /tmp/docker-cache
+        key: docker-images-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile-aeronmd') }}
+        restore-keys: |
+          docker-images-${{ runner.os }}-
 
     - name: Start minikube
       uses: medyagh/setup-minikube@latest
 
-    - name: Copy containers to minikube
+    - name: Build and load containers to minikube
       shell: bash
-      run: minikube image load jmips/aeron-k8s-bootstrap && minikube image load jmips/aeronmd
+      run: |
+        set -eo pipefail
+        eval $(minikube docker-env)
+
+        # Try to load from cache if available
+        if [ -f /tmp/docker-cache/aeron-k8s-bootstrap.tar ]; then
+          echo "Loading aeron-k8s-bootstrap from cache..."
+          docker load -i /tmp/docker-cache/aeron-k8s-bootstrap.tar
+        fi
+
+        if [ -f /tmp/docker-cache/aeronmd.tar ]; then
+          echo "Loading aeronmd from cache..."
+          docker load -i /tmp/docker-cache/aeronmd.tar
+        fi
+
+        # Build containers (will use cached layers if images were loaded)
+        ./build_containers.sh
 
     - name: Deploy to minikube
       shell: bash
@@ -53,3 +55,22 @@ runs:
     - name: Test bootstrapping
       shell: bash
       run: ./check_bootstrap_success.sh
+
+    - name: Prepare Docker cache
+      shell: bash
+      if: always()
+      run: |
+        set -eo pipefail
+        mkdir -p /tmp/docker-cache
+        eval $(minikube docker-env)
+
+        echo "Saving Docker images to cache..."
+        docker save jmips/aeron-k8s-bootstrap -o /tmp/docker-cache/aeron-k8s-bootstrap.tar
+        docker save jmips/aeronmd -o /tmp/docker-cache/aeronmd.tar
+
+    - name: Save Docker cache
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: /tmp/docker-cache
+        key: docker-images-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile-aeronmd') }}
