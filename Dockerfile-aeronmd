@@ -1,0 +1,52 @@
+FROM debian:trixie AS builder
+
+# Build argument for Aeron version
+ARG AERON_VERSION=1.49.0
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    openjdk-21-jdk-headless \
+    curl \
+    git \
+    pkg-config \
+    uuid-dev \
+    libbsd-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Download the specified Aeron version
+RUN echo "Building Aeron version: ${AERON_VERSION}" && \
+    curl -L "https://github.com/real-logic/aeron/archive/refs/tags/${AERON_VERSION}.tar.gz" | tar xz --strip-components=1
+
+# Build the C media driver (skip tests)
+RUN ./cppbuild/cppbuild --no-tests
+
+# Runtime stage
+FROM debian:trixie-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libuuid1 \
+    libbsd0 \
+    zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the built media driver
+COPY --from=builder /build/cppbuild/Release/binaries/aeronmd_s /usr/local/bin/
+COPY --from=builder /build/cppbuild/Release/binaries/AeronStat /usr/local/bin/
+
+
+# Create aeron user and directories
+RUN useradd aeron
+
+USER aeron
+
+# Set environment variables for Aeron
+ENV AERON_THREADING_MODE=SHARED
+ENV AERON_DIR_DELETE_ON_START=true
+ENV AERON_DIR_DELETE_ON_SHUTDOWN=true
+
+ENTRYPOINT ["/usr/local/bin/aeronmd_s"]

@@ -209,6 +209,8 @@ func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string,
 	if len(neighbors) > 0 {
 		contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.bootstrap.neighbor=%s", strings.Join(neighbors, ",")))
 	}
+	contentLines = append(contentLines, "aeron.name.resolver.supplier=driver")
+
 	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.name=%s", fullHostname))
 	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.interface=%s:%d", shortHostname, discoveryPort))
 	content := strings.Join(contentLines, "\n") + "\n"
