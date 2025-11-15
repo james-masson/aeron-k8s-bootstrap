@@ -9,7 +9,7 @@ COPY go.mod ./
 COPY aeron-k8s-bootstrap.go ./
 
 # Download dependencies and build the binary
-RUN go mod tidy && \
+RUN --mount=type=cache,target=/root/.cache go mod tidy && \
     CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o aeron-k8s-bootstrap .
 
 # Final stage - minimal runtime image
@@ -18,10 +18,10 @@ FROM alpine:latest
 # Install ca-certificates for HTTPS connections to Kubernetes API
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /
 
 # Copy the binary from builder stage
-COPY --from=builder /app/aeron-k8s-bootstrap .
+COPY --from=builder /app/aeron-k8s-bootstrap /usr/local/bin/aeron-k8s-bootstrap
 
 # Create the aeron directory
 RUN mkdir -p /etc/aeron
@@ -30,4 +30,4 @@ RUN mkdir -p /etc/aeron
 RUN adduser -D -s /bin/sh aeron
 USER aeron
 
-ENTRYPOINT ["./aeron-k8s-bootstrap"]
+ENTRYPOINT ["/usr/local/bin/aeron-k8s-bootstrap"]
