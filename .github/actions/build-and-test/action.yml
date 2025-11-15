@@ -32,7 +32,9 @@ runs:
         context: .
         file: ./Dockerfile
         push: true
-        tags: ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }}
+        tags: |
+          ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }}
+          ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:latest
         cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:cache
         cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:cache,mode=max
 
@@ -42,7 +44,9 @@ runs:
         context: .
         file: ./Dockerfile-aeronmd
         push: true
-        tags: ghcr.io/${{ github.repository }}/aeronmd:${{ github.sha }}
+        tags: |
+          ghcr.io/${{ github.repository }}/aeronmd:${{ github.sha }}
+          ghcr.io/${{ github.repository }}/aeronmd:latest
         cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/aeronmd:cache
         cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/aeronmd:cache,mode=max
 
