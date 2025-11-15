@@ -16,37 +16,55 @@ runs:
       shell: bash
       run: CGO_ENABLED=0 GOOS=linux go build
 
-    - name: Restore Docker cache
-      uses: actions/cache/restore@v4
-      id: docker-cache
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
       with:
-        path: /tmp/docker-cache
-        key: docker-images-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile-aeronmd') }}
-        restore-keys: |
-          docker-images-${{ runner.os }}-
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Build and push aeron-k8s-bootstrap container
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }}
+        cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:cache
+        cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:cache,mode=max
+
+    - name: Build and push aeronmd container
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile-aeronmd
+        push: true
+        tags: ghcr.io/${{ github.repository }}/aeronmd:${{ github.sha }}
+        cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/aeronmd:cache
+        cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/aeronmd:cache,mode=max
 
     - name: Start minikube
       uses: medyagh/setup-minikube@latest
 
-    - name: Build and load containers to minikube
+    - name: Load containers to minikube
       shell: bash
       run: |
         set -eo pipefail
-        eval $(minikube docker-env)
 
-        # Try to load from cache if available
-        if [ -f /tmp/docker-cache/aeron-k8s-bootstrap.tar ]; then
-          echo "Loading aeron-k8s-bootstrap from cache..."
-          docker load -i /tmp/docker-cache/aeron-k8s-bootstrap.tar
-        fi
+        # Pull images from GHCR
+        docker pull ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }}
+        docker pull ghcr.io/${{ github.repository }}/aeronmd:${{ github.sha }}
 
-        if [ -f /tmp/docker-cache/aeronmd.tar ]; then
-          echo "Loading aeronmd from cache..."
-          docker load -i /tmp/docker-cache/aeronmd.tar
-        fi
+        # Tag for local use
+        docker tag ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }} jmips/aeron-k8s-bootstrap:latest
+        docker tag ghcr.io/${{ github.repository }}/aeronmd:${{ github.sha }} jmips/aeronmd:latest
 
-        # Build containers (will use cached layers if images were loaded)
-        ./build_containers.sh
+        # Load into minikube
+        minikube image load jmips/aeron-k8s-bootstrap:latest
+        minikube image load jmips/aeronmd:latest
 
     - name: Deploy to minikube
       shell: bash
@@ -55,22 +73,3 @@ runs:
     - name: Test bootstrapping
       shell: bash
       run: ./check_bootstrap_success.sh
-
-    - name: Prepare Docker cache
-      shell: bash
-      if: always()
-      run: |
-        set -eo pipefail
-        mkdir -p /tmp/docker-cache
-        eval $(minikube docker-env)
-
-        echo "Saving Docker images to cache..."
-        docker save jmips/aeron-k8s-bootstrap -o /tmp/docker-cache/aeron-k8s-bootstrap.tar
-        docker save jmips/aeronmd -o /tmp/docker-cache/aeronmd.tar
-
-    - name: Save Docker cache
-      uses: actions/cache/save@v4
-      if: always()
-      with:
-        path: /tmp/docker-cache
-        key: docker-images-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile-aeronmd') }}
