@@ -47,10 +47,10 @@ Your media driver code expects to load `/etc/aeron/bootstrap.properties` ( path 
 - `AERON_MD_HOSTNAME_SUFFIX`: Suffix for Aeron resolver hostname (default: ".aeron")
 - `HOSTNAME`: Pod hostname (used as the interface to bind to)
 
-## Building the container
+## Building the containers
 
 ```
-docker build -t jmips/aeron-k8s-bootstrap .
+./build_containers.sh
 ```
 
 ## Build & Test
