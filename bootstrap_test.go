@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,145 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
+
+func TestGetMediaDriverPodsWithSecondaryInterface(t *testing.T) {
+	tests := []struct {
+		name     string
+		pods     []corev1.Pod
+		expected []PodInfo
+		networkName   string
+		interfaceName  string
+	}{
+		{
+			name: "pod with secondary interface",
+			pods: []corev1.Pod{
+				createTestPodWithSecondaryInterface("aeron-0", "10.0.0.1", "10.0.0.2", "Running", "aeron-network", "net1", time.Now().Add(-2*time.Minute)),
+			},
+			expected: []PodInfo{
+				{Name: "aeron-older", IP: "10.0.0.2", CreationTime: time.Now().Add(-10 * time.Minute)},
+			},
+		},
+		{
+			name: "pod without a secondary interface",
+			pods: []corev1.Pod{
+				createTestPod("aeron-0", "10.0.0.1", "Running", time.Now().Add(-2*time.Minute)),
+			},
+			expected: []PodInfo{
+				{Name: "aeron-older", IP: "10.0.0.1", CreationTime: time.Now().Add(-10 * time.Minute)},
+			},
+		},
+		{
+			name: "pod with a secondary interface and network env var",
+			pods: []corev1.Pod{
+				createTestPodWithSecondaryInterface("aeron-0", "10.0.0.1", "10.0.0.2", "Running", "custom-network", "", time.Now().Add(-2*time.Minute)),
+			},
+			expected: []PodInfo{
+				{Name: "aeron-older", IP: "10.0.0.2", CreationTime: time.Now().Add(-10 * time.Minute)},
+			},
+			networkName: "custom-network",
+		},
+		{
+			name: "pod with a secondary interface and interface name env var",
+			pods: []corev1.Pod{
+				createTestPodWithSecondaryInterface("aeron-0", "10.0.0.1", "10.0.0.2", "Running", "", "custom1", time.Now().Add(-2*time.Minute)),
+			},
+			expected: []PodInfo{
+				{Name: "aeron-older", IP: "10.0.0.2", CreationTime: time.Now().Add(-10 * time.Minute)},
+			},
+			interfaceName: "custom1",
+		},
+		{
+			name: "pod with a secondary interface and interface and network env vars",
+			pods: []corev1.Pod{
+				createTestPodWithSecondaryInterface("aeron-0", "10.0.0.1", "10.0.0.2", "Running", "custom-network", "custom1", time.Now().Add(-2*time.Minute)),
+			},
+			expected: []PodInfo{
+				{Name: "aeron-older", IP: "10.0.0.2", CreationTime: time.Now().Add(-10 * time.Minute)},
+			},
+			networkName:  "custom-network",
+			interfaceName: "custom1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientset := fake.NewSimpleClientset()
+
+			// Add pods to the fake client
+			for _, pod := range tt.pods {
+				_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &pod, metav1.CreateOptions{})
+				if err != nil {
+					t.Fatalf("Failed to create test pod: %v", err)
+				}
+			}
+
+			os.Unsetenv("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME")
+			os.Unsetenv("AERON_MD_SECONDARY_INTERFACE_NAME")
+			if tt.networkName != "" {
+				// Set the environment variable for secondary interface network name
+				t.Setenv("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME", tt.networkName)
+			}
+			if tt.interfaceName != "" {
+				// Set the environment variable for secondary interface name
+				t.Setenv("AERON_MD_SECONDARY_INTERFACE_NAME", tt.interfaceName)
+			}
+			result, err := getMediaDriverPods(clientset, "test-namespace", "aeron.io/media-driver=true", 0)
+			if err != nil {
+				t.Fatalf("getMediaDriverPods() error = %v", err)
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("getMediaDriverPods() returned %d pods, expected %d", len(result), len(tt.expected))
+				return
+			}
+
+			if result[0].IP != tt.expected[0].IP {
+				t.Errorf("Pod IP = %s, expected %s", result[0].IP, tt.expected[0].IP)
+			}
+		})
+	}
+}
+
+// func TestGetSecondaryInterfaceName(t *testing.T) {
+//
+// 	// Test with environment variable set
+// 	t.Setenv("AERON_MD_SECONDARY_INTERFACE_NAME", "eth1")
+// 	result := getSecondaryInterfaceName()
+// 	expected := "eth1"
+//
+// 	if result != expected {
+// 		t.Errorf("getSecondaryInterfaceName() = %s, expected %s", result, expected)
+// 	}
+//
+// 	// Test with environment variable NOT set
+//   os.Unsetenv("AERON_MD_SECONDARY_INTERFACE_NAME")
+// 	result = getSecondaryInterfaceName()
+// 	expected = "net1"
+//
+// 	if result != expected {
+// 		t.Errorf("getSecondaryInterfaceName() = %s, expected %s", result, expected)
+// 	}
+// }
+//
+// func TestGetSecondaryInterfaceNetworkName(t *testing.T) {
+//
+// 	// Test with environment variable set
+// 	t.Setenv("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME", "secondary-network")
+// 	result := getSecondaryInterfaceNetworkName()
+// 	expected := "secondary-network"
+//
+// 	if result != expected {
+// 		t.Errorf("getSecondaryInterfaceNetworkName() = %s, expected %s", result, expected)
+// 	}
+//
+// 	// Test with environment variable NOT set
+// 	os.Unsetenv("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME")
+// 	result = getSecondaryInterfaceNetworkName()
+// 	expected = "aeron-network"
+// 	if result != expected {
+// 		t.Errorf("getSecondaryInterfaceNetworkName() = %s, expected %s", result, expected)
+// 	}
+// }
 
 func TestGetMediaDriverPods(t *testing.T) {
 	tests := []struct {
@@ -214,7 +354,7 @@ func TestCreateBootstrapProperties(t *testing.T) {
 
 			for i, line := range lines {
 				if line != tt.expectedLines[i] {
-					t.Errorf("Line %d: got '%s', expected '%s'", i, line, tt.expectedLines[i])
+					t.Errorf("Line %d: got \"%s\", expected \"%s\"", i, line, tt.expectedLines[i])
 				}
 			}
 		})
@@ -292,10 +432,10 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 
 			// Use the testable function with custom directory
 			aeronDir := filepath.Join(tempDir, "aeron")
-			
+
 			// Build the full hostname with namespace
 			fullHostname := buildAeronHostname(tt.namespace)
-			
+
 			err = createBootstrapPropertiesInDir(aeronDir, tt.neighborIPs, tt.discoveryPort, fullHostname, tt.podHostname)
 			if err != nil {
 				t.Fatalf("createBootstrapProperties() error = %v", err)
@@ -309,7 +449,7 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 			}
 
 			lines := strings.Split(strings.TrimSpace(string(content)), "\n")
-			
+
 			if len(lines) != len(tt.expectedLines) {
 				t.Errorf("Expected %d lines, got %d. Content:\n%s", len(tt.expectedLines), len(lines), string(content))
 				return
@@ -317,7 +457,7 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 
 			for i, line := range lines {
 				if line != tt.expectedLines[i] {
-					t.Errorf("Line %d: got '%s', expected '%s'", i, line, tt.expectedLines[i])
+					t.Errorf("Line %d: got \"%s\", expected \"%s\"", i, line, tt.expectedLines[i])
 				}
 			}
 		})
@@ -436,17 +576,17 @@ func TestGetLabelSelector(t *testing.T) {
 
 func TestGetMediaDriverPodsWithCustomLabel(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
-	
+
 	// Create pods with different labels
 	customPod := createTestPodWithLabel("custom-aeron", "10.0.0.1", "Running", time.Now().Add(-5*time.Minute), "app", "aeron-driver")
 	defaultPod := createTestPodWithLabel("default-aeron", "10.0.0.2", "Running", time.Now().Add(-3*time.Minute), "aeron.io/media-driver", "true")
-	
+
 	// Add both pods to the fake client
 	_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &customPod, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create custom test pod: %v", err)
 	}
-	
+
 	_, err = clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &defaultPod, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create default test pod: %v", err)
@@ -464,7 +604,7 @@ func TestGetMediaDriverPodsWithCustomLabel(t *testing.T) {
 	}
 
 	if result[0].Name != "custom-aeron" {
-		t.Errorf("Expected pod name 'custom-aeron', got '%s'", result[0].Name)
+		t.Errorf("Expected pod name \"custom-aeron\", got \"%s\"", result[0].Name)
 	}
 
 	// Test with default label selector - should only find the default pod
@@ -479,7 +619,7 @@ func TestGetMediaDriverPodsWithCustomLabel(t *testing.T) {
 	}
 
 	if result[0].Name != "default-aeron" {
-		t.Errorf("Expected pod name 'default-aeron', got '%s'", result[0].Name)
+		t.Errorf("Expected pod name \"default-aeron\", got \"%s\"", result[0].Name)
 	}
 }
 
@@ -600,7 +740,7 @@ func TestGetMaxPods(t *testing.T) {
 
 func TestGetMediaDriverPodsWithMaxLimit(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
-	
+
 	// Create 5 pods with different creation times
 	pods := []corev1.Pod{
 		createTestPod("aeron-1", "10.0.0.1", "Running", time.Now().Add(-10*time.Minute)),
@@ -609,7 +749,7 @@ func TestGetMediaDriverPodsWithMaxLimit(t *testing.T) {
 		createTestPod("aeron-4", "10.0.0.4", "Running", time.Now().Add(-4*time.Minute)),
 		createTestPod("aeron-5", "10.0.0.5", "Running", time.Now().Add(-2*time.Minute)),
 	}
-	
+
 	// Add all pods to the fake client
 	for _, pod := range pods {
 		_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &pod, metav1.CreateOptions{})
@@ -635,7 +775,7 @@ func TestGetMediaDriverPodsWithMaxLimit(t *testing.T) {
 	if len(result) != 3 {
 		t.Errorf("Expected 3 pods with limit, got %d", len(result))
 	}
-	
+
 	// Verify we got the oldest pods
 	expectedNames := []string{"aeron-1", "aeron-2", "aeron-3"}
 	for i, pod := range result {
@@ -695,17 +835,17 @@ func TestGetNamespace(t *testing.T) {
 			}
 
 			result, err := getNamespace()
-			
+
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none")
 				return
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if !tt.expectError && result != tt.expectedName {
 				t.Errorf("getNamespace() = %s, expected %s", result, tt.expectedName)
 			}
@@ -770,11 +910,11 @@ func TestGetHostnameSuffix(t *testing.T) {
 
 func TestBuildAeronHostname(t *testing.T) {
 	tests := []struct {
-		name         string
-		namespace    string
-		hostname     string
-		suffix       string
-		expected     string
+		name      string
+		namespace string
+		hostname  string
+		suffix    string
+		expected  string
 	}{
 		{
 			name:      "standard case",
@@ -849,17 +989,17 @@ func TestBuildAeronHostname(t *testing.T) {
 
 func TestMainExitsWithErrorWhenNoPodsFound(t *testing.T) {
 	// This test verifies that when no pods are found, the application exits with code 1
-	// We can't easily test os.Exit(1) directly, but we can test the logic that leads to it
-	
+	// We can\"t easily test os.Exit(1) directly, but we can test the logic that leads to it
+
 	clientset := fake.NewSimpleClientset()
-	// Don't add any pods - this will simulate no pods found
-	
+	// Don\"t add any pods - this will simulate no pods found
+
 	// Test that getMediaDriverPods returns empty result
 	result, err := getMediaDriverPods(clientset, "test-namespace", "aeron.io/media-driver=true", 0)
 	if err != nil {
 		t.Fatalf("getMediaDriverPods() error = %v", err)
 	}
-	
+
 	// Verify that no pods are returned (which should trigger exit code 1 in main)
 	if len(result) != 0 {
 		t.Errorf("Expected 0 pods when none exist, got %d", len(result))
@@ -869,28 +1009,28 @@ func TestMainExitsWithErrorWhenNoPodsFound(t *testing.T) {
 func TestMainExitsWithErrorWhenOnlyPodsWithoutIPFound(t *testing.T) {
 	// This test verifies that pods without IP addresses are filtered out,
 	// and if no pods with IPs remain, the application should exit with code 1
-	
+
 	clientset := fake.NewSimpleClientset()
-	
+
 	// Add pods without IP addresses
 	podsWithoutIP := []corev1.Pod{
 		createTestPodWithoutIP("aeron-pending-1", "Pending", time.Now().Add(-5*time.Minute)),
 		createTestPodWithoutIP("aeron-pending-2", "Pending", time.Now().Add(-3*time.Minute)),
 	}
-	
+
 	for _, pod := range podsWithoutIP {
 		_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &pod, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Failed to create test pod: %v", err)
 		}
 	}
-	
+
 	// Test that getMediaDriverPods returns empty result (pods without IPs are filtered out)
 	result, err := getMediaDriverPods(clientset, "test-namespace", "aeron.io/media-driver=true", 0)
 	if err != nil {
 		t.Fatalf("getMediaDriverPods() error = %v", err)
 	}
-	
+
 	// Verify that no pods are returned (which should trigger exit code 1 in main)
 	if len(result) != 0 {
 		t.Errorf("Expected 0 pods when only pods without IPs exist, got %d", len(result))
@@ -900,28 +1040,28 @@ func TestMainExitsWithErrorWhenOnlyPodsWithoutIPFound(t *testing.T) {
 func TestMainExitsWithErrorWhenWrongLabelSelector(t *testing.T) {
 	// This test verifies that when using a label selector that matches no pods,
 	// the application should exit with code 1
-	
+
 	clientset := fake.NewSimpleClientset()
-	
+
 	// Add pods with the default label
 	podsWithDefaultLabel := []corev1.Pod{
 		createTestPod("aeron-1", "10.0.0.1", "Running", time.Now().Add(-5*time.Minute)),
 		createTestPod("aeron-2", "10.0.0.2", "Running", time.Now().Add(-3*time.Minute)),
 	}
-	
+
 	for _, pod := range podsWithDefaultLabel {
 		_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &pod, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Failed to create test pod: %v", err)
 		}
 	}
-	
-	// Test with a label selector that won't match any pods
+
+	// Test with a label selector that won\"t match any pods
 	result, err := getMediaDriverPods(clientset, "test-namespace", "app=nonexistent", 0)
 	if err != nil {
 		t.Fatalf("getMediaDriverPods() error = %v", err)
 	}
-	
+
 	// Verify that no pods are returned (which should trigger exit code 1 in main)
 	if len(result) != 0 {
 		t.Errorf("Expected 0 pods with wrong label selector, got %d", len(result))
@@ -998,7 +1138,7 @@ func TestResolverInterfaceUsesShortHostname(t *testing.T) {
 
 			for i, line := range lines {
 				if line != tt.expectedLines[i] {
-					t.Errorf("Line %d: got '%s', expected '%s'", i, line, tt.expectedLines[i])
+					t.Errorf("Line %d: got \"%s\", expected \"%s\"", i, line, tt.expectedLines[i])
 				}
 			}
 		})
@@ -1070,4 +1210,24 @@ func createTestPodWithoutIP(name, phase string, creationTime time.Time) corev1.P
 	pod := createTestPodWithLabel(name, "", phase, creationTime, "aeron.io/media-driver", "true")
 	pod.Status.PodIP = "" // Explicitly set no IP address
 	return pod
+}
+
+func createTestPodWithSecondaryInterface(name, primaryIP, secondaryIP, phase string, networkName string, interfaceName string, creationTime time.Time) corev1.Pod {
+
+	return corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"aeron.io/media-driver": "true",
+			},
+			CreationTimestamp: metav1.NewTime(creationTime),
+			Annotations: map[string]string{
+				"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf("[{\"name\":\"aws-cni\",\"interface\":\"eth0\",\"ips\":[\"10.190.223.111\"],\"default\":true,\"dns\":{}},{\"name\":\"aws-cni\",\"interface\":\"dummy9e99c8bc34f\",\"mac\":\"0\",\"dns\":{}},{\"name\":\"%s\",\"interface\":\"%s\",\"ips\":[\"%s\"],\"mac\":\"02:4a:ef:75:4e:00\",\"dns\":{}}]", networkName, interfaceName, secondaryIP),
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPhase(phase),
+			PodIP: primaryIP,
+		},
+	}
 }
