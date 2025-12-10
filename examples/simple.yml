@@ -29,7 +29,6 @@ subjects:
   - kind: ServiceAccount
     name: aeron-k8s-bootstrap
     namespace: default
-
 ---
 # A configmap to hold Aeron properties
 apiVersion: v1

@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -38,6 +40,21 @@ type PodInfo struct {
 	IP           string
 	CreationTime time.Time
 }
+
+type NetworkStatus struct {
+	Name      string   `json:"name"`
+	Interface string   `json:"interface"`
+	IPs       []string `json:"ips,omitempty"`
+	MAC       string   `json:"mac,omitempty"`
+	Default   bool     `json:"default,omitempty"`
+	DNS       struct{} `json:"dns"`
+}
+
+const (
+	networkStatusAnnotation = "k8s.v1.cni.cncf.io/network-status"
+	defaultSecondaryInterfaceName  = "net1"
+	defaultSecondaryInterfaceNetworkName = "aeron-network"
+)
 
 // getInClusterConfig creates a Kubernetes client using in-cluster configuration
 func getInClusterConfig() (*kubernetes.Clientset, error) {
@@ -84,16 +101,24 @@ func getMediaDriverPods(clientset kubernetes.Interface, namespace, labelSelector
 	var runningPods []PodInfo
 
 	for _, pod := range pods.Items {
+
+		// get secondary interface IP if available
+		// fallback to primary PodIP if secondary is not found
+		ip, err := getIP(pod)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get IP for pod %s: %v", pod.Name, err)
+		} 
+
 		// Only filter on IP address - include all pods with IPs regardless of status
 		if pod.Status.PodIP != "" {
 			podInfo := PodInfo{
 				Name:         pod.Name,
-				IP:           pod.Status.PodIP,
+				IP:           ip,
 				CreationTime: pod.CreationTimestamp.Time,
 			}
 			runningPods = append(runningPods, podInfo)
-			log.Printf("Found media driver pod: %s (%s) in phase %s created at %v",
-				pod.Name, pod.Status.PodIP, pod.Status.Phase, pod.CreationTimestamp.Time)
+			log.Printf("Found media driver pod: %s in phase %s created at %v",
+				pod.Name, pod.Status.Phase, pod.CreationTimestamp.Time)
 		}
 	}
 
@@ -119,6 +144,56 @@ func getMediaDriverPods(clientset kubernetes.Interface, namespace, labelSelector
 	}
 
 	return runningPods, nil
+}
+
+// unmarshalNetworkStatus parses the network status annotation JSON into a slice of NetworkStatus
+func unmarshalNetworkStatus(annotation string) ([]NetworkStatus, error) {
+	var networks []NetworkStatus
+	err := json.Unmarshal([]byte(annotation), &networks)
+	if err != nil {
+		if err.Error() == "unexpected end of JSON input" {
+			// Empty annotation, return empty slice
+			return networks, nil
+		}
+		return nil, fmt.Errorf("error unmarshaling network status: %v", err)
+	}
+	return networks, nil
+}
+
+// getIP retrieves the IP address for the secondary interface from the pod's network status annotation
+// it falls back to the primary PodIP if no secondary interface (network status annotation) is found
+func getIP(pod v1.Pod) (string, error) {
+
+	var networks []NetworkStatus
+	networks, err := unmarshalNetworkStatus(pod.Annotations[networkStatusAnnotation])
+	if err != nil {
+		log.Printf("Error parsing network status for pod %s: %v", pod.Name, err)
+		return "", err
+	}
+
+	if len(networks) == 0 {
+		log.Printf("No network status annotation found for pod %s. Using status.PodIP", pod.Name)
+		return pod.Status.PodIP, nil
+	}
+
+	secondaryInterfaceNetworkName, networkNameIsSet := os.LookupEnv("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME")
+	secondaryInterfaceName, interfaceNameIsSet := os.LookupEnv("AERON_MD_SECONDARY_INTERFACE_NAME")
+
+	for _, network := range networks {
+		if networkNameIsSet && network.Name == secondaryInterfaceNetworkName {
+			log.Printf("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME is set, found network %s for pod %s", secondaryInterfaceNetworkName, pod.Name)
+			return network.IPs[0], nil
+		} else if interfaceNameIsSet && network.Interface == secondaryInterfaceName {
+			log.Printf("AERON_MD_SECONDARY_INTERFACE_NAME is set, found interface %s for pod %s", secondaryInterfaceName, pod.Name)
+			return network.IPs[0], nil
+		} else if network.Interface == defaultSecondaryInterfaceName {
+			log.Printf("No secondary interface or network env var is set, found default secondary interface %s for pod %s", defaultSecondaryInterfaceName, pod.Name)
+			return network.IPs[0], nil
+		} 
+	}
+
+	log.Printf("network-status annotation was found, but no network matched default interface name %s for pod %s. Falling back to using its primary interface (status.PodIP)", defaultSecondaryInterfaceName, pod.Name)
+	return pod.Status.PodIP, nil
 }
 
 // getLabelSelector returns the label selector from environment variable or default
