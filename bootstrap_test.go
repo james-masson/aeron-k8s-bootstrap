@@ -32,11 +32,11 @@ import (
 
 func TestGetMediaDriverPodsWithSecondaryInterface(t *testing.T) {
 	tests := []struct {
-		name     string
-		pods     []corev1.Pod
-		expected []PodInfo
+		name          string
+		pods          []corev1.Pod
+		expected      []PodInfo
 		networkName   string
-		interfaceName  string
+		interfaceName string
 	}{
 		{
 			name: "pod with secondary interface",
@@ -84,7 +84,7 @@ func TestGetMediaDriverPodsWithSecondaryInterface(t *testing.T) {
 			expected: []PodInfo{
 				{Name: "aeron-older", IP: "10.0.0.2", CreationTime: time.Now().Add(-10 * time.Minute)},
 			},
-			networkName:  "custom-network",
+			networkName:   "custom-network",
 			interfaceName: "custom1",
 		},
 	}
@@ -1036,6 +1036,63 @@ func TestGetCurrentHostname(t *testing.T) {
 				t.Errorf("getCurrentHostname() = %s, expected %s", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGetIP(t *testing.T) {
+	tests := []struct {
+		name     string
+		pod      corev1.Pod
+		expected string
+	}{
+		{
+			name:     "pod with primary IP",
+			pod:      createTestPod("pod-with-primary", "10.0.0.1", "Running", time.Now().Add(-5*time.Minute)),
+			expected: "10.0.0.1",
+		},
+		{
+			name: "pod with secondary interface",
+			pod: createTestPodWithSecondaryInterface("pod-with-secondary", "10.0.0.1", "10.0.0.2", "Running", "custom-network", "net1", time.Now().Add(-5*time.Minute)),
+			expected: "10.0.0.2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, _ := getIP(tt.pod)
+			if result != tt.expected {
+				t.Errorf("getIP() = %s, expected %s", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetCurrentPod(t *testing.T) {
+	namespace := "test-namespace"
+	pod := createTestPod("pod-with-primary", "10.0.0.1", "Running", time.Now().Add(-5*time.Minute))
+
+	clientset := fake.NewSimpleClientset()
+	_, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create test pod: %v", err)
+	}
+	t.Setenv("HOSTNAME", pod.Name)
+
+	result := getCurrentPod(clientset, namespace)
+	expected := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pod-with-primary",
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.0.0.1",
+		},
+	}
+
+	if result.Name != expected.Name {
+		t.Errorf("getCurrentPod() Name = %s, expected %s", result.Name, expected.Name)
+	}
+	if result.Status.PodIP != expected.Status.PodIP {
+		t.Errorf("getCurrentPod() PodIP = %s, expected %s", result.Status.PodIP, expected.Status.PodIP)
 	}
 }
 

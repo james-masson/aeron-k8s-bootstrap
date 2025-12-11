@@ -51,9 +51,8 @@ type NetworkStatus struct {
 }
 
 const (
-	networkStatusAnnotation = "k8s.v1.cni.cncf.io/network-status"
-	defaultSecondaryInterfaceName  = "net1"
-	defaultSecondaryInterfaceNetworkName = "aeron-network"
+	networkStatusAnnotation       = "k8s.v1.cni.cncf.io/network-status"
+	defaultSecondaryInterfaceName = "net1"
 )
 
 // getInClusterConfig creates a Kubernetes client using in-cluster configuration
@@ -107,10 +106,10 @@ func getMediaDriverPods(clientset kubernetes.Interface, namespace, labelSelector
 		ip, err := getIP(pod)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get IP for pod %s: %v", pod.Name, err)
-		} 
+		}
 
 		// Only filter on IP address - include all pods with IPs regardless of status
-		if pod.Status.PodIP != "" {
+		if ip != "" {
 			podInfo := PodInfo{
 				Name:         pod.Name,
 				IP:           ip,
@@ -163,7 +162,6 @@ func unmarshalNetworkStatus(annotation string) ([]NetworkStatus, error) {
 // getIP retrieves the IP address for the secondary interface from the pod's network status annotation
 // it falls back to the primary PodIP if no secondary interface (network status annotation) is found
 func getIP(pod v1.Pod) (string, error) {
-
 	var networks []NetworkStatus
 	networks, err := unmarshalNetworkStatus(pod.Annotations[networkStatusAnnotation])
 	if err != nil {
@@ -189,7 +187,7 @@ func getIP(pod v1.Pod) (string, error) {
 		} else if network.Interface == defaultSecondaryInterfaceName {
 			log.Printf("No secondary interface or network env var is set, found default secondary interface %s for pod %s", defaultSecondaryInterfaceName, pod.Name)
 			return network.IPs[0], nil
-		} 
+		}
 	}
 
 	log.Printf("network-status annotation was found, but no network matched default interface name %s for pod %s. Falling back to using its primary interface (status.PodIP)", defaultSecondaryInterfaceName, pod.Name)
@@ -262,19 +260,22 @@ func getCurrentHostname() string {
 	return "localhost"
 }
 
+// getCurrentPod retrieves the current pod object from the Kubernetes API
+func getCurrentPod(clientset kubernetes.Interface, namespace string) v1.Pod {
+	podName := getCurrentHostname()
+
+	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		log.Fatalf("Failed to get current pod %s in namespace %s: %v", podName, namespace, err)
+	}
+	return *pod
+}
+
 // buildAeronHostname creates the full Aeron hostname with namespace and suffix
 func buildAeronHostname(namespace string) string {
 	baseHostname := getCurrentHostname()
 	suffix := getHostnameSuffix()
 	return fmt.Sprintf("%s.%s%s", baseHostname, namespace, suffix)
-}
-
-// createBootstrapProperties creates the bootstrap properties file with all neighbor IPs
-func createBootstrapProperties(neighborIPs []string, discoveryPort int, fullHostname string) error {
-	bootstrapPath := getBootstrapPath()
-	dir := filepath.Dir(bootstrapPath)
-	shortHostname := getCurrentHostname()
-	return createBootstrapPropertiesAtPath(dir, bootstrapPath, neighborIPs, discoveryPort, fullHostname, shortHostname)
 }
 
 // createBootstrapPropertiesInDir creates the bootstrap properties file in a specified directory (for testing)
@@ -284,7 +285,7 @@ func createBootstrapPropertiesInDir(dir string, neighborIPs []string, discoveryP
 }
 
 // createBootstrapPropertiesAtPath creates the bootstrap properties file at a specified path
-func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string, discoveryPort int, fullHostname, shortHostname string) error {
+func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string, discoveryPort int, fullHostname, resolverInterface string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %v", dir, err)
 	}
@@ -303,7 +304,7 @@ func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string,
 	contentLines = append(contentLines, "aeron.name.resolver.supplier=driver")
 
 	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.name=%s", fullHostname))
-	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.interface=%s:%d", shortHostname, discoveryPort))
+	contentLines = append(contentLines, fmt.Sprintf("aeron.driver.resolver.interface=%s:%d", resolverInterface, discoveryPort))
 	content := strings.Join(contentLines, "\n") + "\n"
 
 	// Write the file
@@ -312,9 +313,9 @@ func createBootstrapPropertiesAtPath(dir, filePath string, neighborIPs []string,
 	}
 
 	if len(neighbors) > 0 {
-		log.Printf("Created %s with bootstrap neighbors: %s, media-driver name: %s, interface: %s:%d", filePath, strings.Join(neighbors, ","), fullHostname, shortHostname, discoveryPort)
+		log.Printf("Created %s with bootstrap neighbors: %s, media-driver name: %s, interface: %s:%d", filePath, strings.Join(neighbors, ","), fullHostname, resolverInterface, discoveryPort)
 	} else {
-		log.Printf("Created %s with media-driver name: %s, interface: %s:%d (no neighbors found)", filePath, fullHostname, shortHostname, discoveryPort)
+		log.Printf("Created %s with media-driver name: %s, interface: %s:%d (no neighbors found)", filePath, fullHostname, resolverInterface, discoveryPort)
 	}
 
 	return nil
@@ -356,12 +357,21 @@ func main() {
 		neighborIPs = append(neighborIPs, pod.IP)
 	}
 
+	// Determine resolver interface IP from current pod
+	currentPod := getCurrentPod(clientset, namespace)
+	resolverInterface, err := getIP(currentPod)
+	if err != nil || resolverInterface == "" {
+		log.Fatalf("Failed to get current pod IP for resolver interface: %v", err)
+	}
+
 	// Get configuration
 	discoveryPort := getDiscoveryPort()
 	aeronHostname := buildAeronHostname(namespace)
 
 	// Create the bootstrap properties file
-	if err := createBootstrapProperties(neighborIPs, discoveryPort, aeronHostname); err != nil {
+	bootstrapPath := getBootstrapPath()
+	dir := filepath.Dir(bootstrapPath)
+	if err := createBootstrapPropertiesAtPath(dir, bootstrapPath, neighborIPs, discoveryPort, aeronHostname, resolverInterface); err != nil {
 		log.Fatalf("Error creating bootstrap properties file: %v", err)
 	}
 
