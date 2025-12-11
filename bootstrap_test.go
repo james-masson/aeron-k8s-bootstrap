@@ -128,47 +128,6 @@ func TestGetMediaDriverPodsWithSecondaryInterface(t *testing.T) {
 	}
 }
 
-// func TestGetSecondaryInterfaceName(t *testing.T) {
-//
-// 	// Test with environment variable set
-// 	t.Setenv("AERON_MD_SECONDARY_INTERFACE_NAME", "eth1")
-// 	result := getSecondaryInterfaceName()
-// 	expected := "eth1"
-//
-// 	if result != expected {
-// 		t.Errorf("getSecondaryInterfaceName() = %s, expected %s", result, expected)
-// 	}
-//
-// 	// Test with environment variable NOT set
-//   os.Unsetenv("AERON_MD_SECONDARY_INTERFACE_NAME")
-// 	result = getSecondaryInterfaceName()
-// 	expected = "net1"
-//
-// 	if result != expected {
-// 		t.Errorf("getSecondaryInterfaceName() = %s, expected %s", result, expected)
-// 	}
-// }
-//
-// func TestGetSecondaryInterfaceNetworkName(t *testing.T) {
-//
-// 	// Test with environment variable set
-// 	t.Setenv("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME", "secondary-network")
-// 	result := getSecondaryInterfaceNetworkName()
-// 	expected := "secondary-network"
-//
-// 	if result != expected {
-// 		t.Errorf("getSecondaryInterfaceNetworkName() = %s, expected %s", result, expected)
-// 	}
-//
-// 	// Test with environment variable NOT set
-// 	os.Unsetenv("AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME")
-// 	result = getSecondaryInterfaceNetworkName()
-// 	expected = "aeron-network"
-// 	if result != expected {
-// 		t.Errorf("getSecondaryInterfaceNetworkName() = %s, expected %s", result, expected)
-// 	}
-// }
-
 func TestGetMediaDriverPods(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -310,18 +269,9 @@ func TestCreateBootstrapProperties(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalHostname := os.Getenv("HOSTNAME")
-			defer func() {
-				if originalHostname != "" {
-					os.Setenv("HOSTNAME", originalHostname)
-				} else {
-					os.Unsetenv("HOSTNAME")
-				}
-			}()
 
 			// Set the hostname for the test
-			os.Setenv("HOSTNAME", tt.hostname)
+			t.Setenv("HOSTNAME", tt.hostname)
 
 			// Create temporary directory for test
 			tempDir, err := os.MkdirTemp("", "aeron-test-")
@@ -403,25 +353,10 @@ func TestCreateBootstrapPropertiesWithNamespaceHostname(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env values
-			originalHostname := os.Getenv("HOSTNAME")
-			originalSuffix := os.Getenv("AERON_MD_HOSTNAME_SUFFIX")
-			defer func() {
-				if originalHostname != "" {
-					os.Setenv("HOSTNAME", originalHostname)
-				} else {
-					os.Unsetenv("HOSTNAME")
-				}
-				if originalSuffix != "" {
-					os.Setenv("AERON_MD_HOSTNAME_SUFFIX", originalSuffix)
-				} else {
-					os.Unsetenv("AERON_MD_HOSTNAME_SUFFIX")
-				}
-			}()
 
 			// Set test env values
-			os.Setenv("HOSTNAME", tt.podHostname)
-			os.Setenv("AERON_MD_HOSTNAME_SUFFIX", tt.suffix)
+			t.Setenv("HOSTNAME", tt.podHostname)
+			t.Setenv("AERON_MD_HOSTNAME_SUFFIX", tt.suffix)
 
 			// Create temporary directory for test
 			tempDir, err := os.MkdirTemp("", "aeron-hostname-test-")
@@ -499,19 +434,9 @@ func TestGetDiscoveryPort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalValue := os.Getenv("AERON_MD_DISCOVERY_PORT")
-			defer func() {
-				if originalValue != "" {
-					os.Setenv("AERON_MD_DISCOVERY_PORT", originalValue)
-				} else {
-					os.Unsetenv("AERON_MD_DISCOVERY_PORT")
-				}
-			}()
-
 			// Set test env value
 			if tt.envValue != "" {
-				os.Setenv("AERON_MD_DISCOVERY_PORT", tt.envValue)
+				t.Setenv("AERON_MD_DISCOVERY_PORT", tt.envValue)
 			} else {
 				os.Unsetenv("AERON_MD_DISCOVERY_PORT")
 			}
@@ -549,19 +474,9 @@ func TestGetLabelSelector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalValue := os.Getenv("AERON_MD_LABEL_SELECTOR")
-			defer func() {
-				if originalValue != "" {
-					os.Setenv("AERON_MD_LABEL_SELECTOR", originalValue)
-				} else {
-					os.Unsetenv("AERON_MD_LABEL_SELECTOR")
-				}
-			}()
-
 			// Set test env value
 			if tt.envValue != "" {
-				os.Setenv("AERON_MD_LABEL_SELECTOR", tt.envValue)
+				t.Setenv("AERON_MD_LABEL_SELECTOR", tt.envValue)
 			} else {
 				os.Unsetenv("AERON_MD_LABEL_SELECTOR")
 			}
@@ -648,19 +563,9 @@ func TestGetBootstrapPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalValue := os.Getenv("AERON_MD_BOOTSTRAP_PATH")
-			defer func() {
-				if originalValue != "" {
-					os.Setenv("AERON_MD_BOOTSTRAP_PATH", originalValue)
-				} else {
-					os.Unsetenv("AERON_MD_BOOTSTRAP_PATH")
-				}
-			}()
-
 			// Set test env value
 			if tt.envValue != "" {
-				os.Setenv("AERON_MD_BOOTSTRAP_PATH", tt.envValue)
+				t.Setenv("AERON_MD_BOOTSTRAP_PATH", tt.envValue)
 			} else {
 				os.Unsetenv("AERON_MD_BOOTSTRAP_PATH")
 			}
@@ -713,19 +618,10 @@ func TestGetMaxPods(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalValue := os.Getenv("AERON_MD_MAX_BOOTSTRAP_PODS")
-			defer func() {
-				if originalValue != "" {
-					os.Setenv("AERON_MD_MAX_BOOTSTRAP_PODS", originalValue)
-				} else {
-					os.Unsetenv("AERON_MD_MAX_BOOTSTRAP_PODS")
-				}
-			}()
 
 			// Set test env value
 			if tt.envValue != "" {
-				os.Setenv("AERON_MD_MAX_BOOTSTRAP_PODS", tt.envValue)
+				t.Setenv("AERON_MD_MAX_BOOTSTRAP_PODS", tt.envValue)
 			} else {
 				os.Unsetenv("AERON_MD_MAX_BOOTSTRAP_PODS")
 			}
@@ -817,19 +713,10 @@ func TestGetNamespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalValue := os.Getenv("AERON_MD_NAMESPACE")
-			defer func() {
-				if originalValue != "" {
-					os.Setenv("AERON_MD_NAMESPACE", originalValue)
-				} else {
-					os.Unsetenv("AERON_MD_NAMESPACE")
-				}
-			}()
 
 			// Set test env value
 			if tt.envValue != "" {
-				os.Setenv("AERON_MD_NAMESPACE", tt.envValue)
+				t.Setenv("AERON_MD_NAMESPACE", tt.envValue)
 			} else {
 				os.Unsetenv("AERON_MD_NAMESPACE")
 			}
@@ -883,19 +770,10 @@ func TestGetHostnameSuffix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalValue := os.Getenv("AERON_MD_HOSTNAME_SUFFIX")
-			defer func() {
-				if originalValue != "" {
-					os.Setenv("AERON_MD_HOSTNAME_SUFFIX", originalValue)
-				} else {
-					os.Unsetenv("AERON_MD_HOSTNAME_SUFFIX")
-				}
-			}()
 
 			// Set test env value
 			if tt.envValue != "" {
-				os.Setenv("AERON_MD_HOSTNAME_SUFFIX", tt.envValue)
+				t.Setenv("AERON_MD_HOSTNAME_SUFFIX", tt.envValue)
 			} else {
 				os.Unsetenv("AERON_MD_HOSTNAME_SUFFIX")
 			}
@@ -955,26 +833,11 @@ func TestBuildAeronHostname(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env values
-			originalHostname := os.Getenv("HOSTNAME")
-			originalSuffix := os.Getenv("AERON_MD_HOSTNAME_SUFFIX")
-			defer func() {
-				if originalHostname != "" {
-					os.Setenv("HOSTNAME", originalHostname)
-				} else {
-					os.Unsetenv("HOSTNAME")
-				}
-				if originalSuffix != "" {
-					os.Setenv("AERON_MD_HOSTNAME_SUFFIX", originalSuffix)
-				} else {
-					os.Unsetenv("AERON_MD_HOSTNAME_SUFFIX")
-				}
-			}()
 
 			// Set test env values
-			os.Setenv("HOSTNAME", tt.hostname)
+			t.Setenv("HOSTNAME", tt.hostname)
 			if tt.suffix != "" {
-				os.Setenv("AERON_MD_HOSTNAME_SUFFIX", tt.suffix)
+				t.Setenv("AERON_MD_HOSTNAME_SUFFIX", tt.suffix)
 			} else {
 				os.Unsetenv("AERON_MD_HOSTNAME_SUFFIX")
 			}
@@ -1160,19 +1023,10 @@ func TestGetCurrentHostname(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original env value
-			originalValue := os.Getenv("HOSTNAME")
-			defer func() {
-				if originalValue != "" {
-					os.Setenv("HOSTNAME", originalValue)
-				} else {
-					os.Unsetenv("HOSTNAME")
-				}
-			}()
 
 			// Set test env value
 			if tt.envValue != "" {
-				os.Setenv("HOSTNAME", tt.envValue)
+				t.Setenv("HOSTNAME", tt.envValue)
 			} else {
 				os.Unsetenv("HOSTNAME")
 			}
