@@ -27,7 +27,7 @@ By default, it...
 - connects to the K8s cluster API
 - looks up it's own namespace
 - finds every pod with an IP address that has the K8s label `aeron.io/media-driver=true`
-- returns the oldest Pods, in order.
+- returns a configurable number of Pods, oldest first.
 - generates a bootstrap hosts list for Aeron media driver gossip of these IPs.
 - generates a local media driver name in the format `<pod-name>.<namespace>.aeron`
 
@@ -65,7 +65,7 @@ go build
 ## Using the container in K8s
 
 ```
-kubectl apply -f example_usage.yml
+kubectl apply -f examples/simple.yml
 ```
 
 ## Things to be aware of.

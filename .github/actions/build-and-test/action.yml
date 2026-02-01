@@ -66,12 +66,10 @@ runs:
 
         # Install Multus
         kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
-        # Create Multus NAD
-        kubectl apply -f multus-config.yaml
 
     - name: Deploy to minikube
       shell: bash
-      run: kubectl apply -f example_usage.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+      run: kubectl apply -f examples/simple.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
 
     - name: Test bootstrapping
       shell: bash
