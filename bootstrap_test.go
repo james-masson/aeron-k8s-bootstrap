@@ -542,7 +542,7 @@ func TestGetMaxPods(t *testing.T) {
 		{
 			name:     "default max pods when env not set",
 			envValue: "",
-			expected: 3,
+			expected: 0,
 		},
 		{
 			name:     "valid max pods",
@@ -562,12 +562,12 @@ func TestGetMaxPods(t *testing.T) {
 		{
 			name:     "invalid env value - non-numeric",
 			envValue: "invalid",
-			expected: 3,
+			expected: 0,
 		},
 		{
 			name:     "invalid env value - negative",
 			envValue: "-5",
-			expected: 3,
+			expected: 0,
 		},
 	}
 

@@ -143,9 +143,9 @@ func getMaxPods() int {
 		if max, err := strconv.Atoi(maxStr); err == nil && max >= 0 {
 			return max
 		}
-		log.Printf("Invalid AERON_MD_MAX_BOOTSTRAP_PODS value '%s', using default 3", maxStr)
+		log.Printf("Invalid AERON_MD_MAX_BOOTSTRAP_PODS value '%s', using default 0 (unlimited)", maxStr)
 	}
-	return 3
+	return 0
 }
 
 // getNamespace returns the namespace from environment variable or discovers it

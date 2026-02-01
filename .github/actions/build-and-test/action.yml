@@ -55,14 +55,19 @@ runs:
     - name: Start minikube
       uses: medyagh/setup-minikube@latest
 
-    - name: Load containers to minikube
+    - name: Load everything to minikube
       shell: bash
       run: |
         set -eo pipefail
 
-        # Load into minikube
+        # Load images into minikube
         minikube image load ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:latest
         minikube image load ghcr.io/${{ github.repository }}/aeronmd:latest
+
+        # Install Multus
+        kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
+        # Create Multus NAD
+        kubectl apply -f multus-config.yaml
 
     - name: Deploy to minikube
       shell: bash
