@@ -4,7 +4,7 @@ set -eo pipefail
 
 function f_check (){
 
-    OUTPUT="$(kubectl exec -it example-aeron-k8s-bootstrap-2 -c media-driver --   AeronStat -w false | grep "Resolver neighbors" | awk '{print $3}')"
+    OUTPUT="$(kubectl -n ${NAMESPACE} exec -it example-aeron-k8s-bootstrap-2 -c media-driver --   AeronStat -w false | grep "Resolver neighbors" | awk '{print $3}')"
 
     # We expect two neighbours
     if [[ ${OUTPUT} != "2" ]]
@@ -18,6 +18,7 @@ function f_check (){
 # Retry logic: try up to 5 times with 2 second backoff
 MAX_ATTEMPTS=5
 BACKOFF_SECONDS=2
+NAMESPACE="${NAMESPACE:-default}"
 
 for attempt in $(seq 1 $MAX_ATTEMPTS); do
     echo "Attempt $attempt of $MAX_ATTEMPTS..."
@@ -35,7 +36,7 @@ done
 
 # All attempts failed
 echo "*** Bootstrap failure after $MAX_ATTEMPTS attempts ***"
-kubectl logs example-aeron-k8s-bootstrap-2 -c media-driver
-kubectl logs example-aeron-k8s-bootstrap-2 -c aeron-k8s-bootstrap
-kubectl exec -it example-aeron-k8s-bootstrap-2 -c media-driver --   AeronStat -w false
+kubectl -n ${NAMESPACE} logs example-aeron-k8s-bootstrap-2 -c media-driver
+kubectl -n ${NAMESPACE} logs example-aeron-k8s-bootstrap-2 -c aeron-k8s-bootstrap
+kubectl -n ${NAMESPACE} exec -it example-aeron-k8s-bootstrap-2 -c media-driver --   AeronStat -w false
 exit 1
