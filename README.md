@@ -23,14 +23,15 @@ Aeron has the concept of distributing it's own name/IP lookup information via go
 
 It's designed to be run as an initContainer before your Aeron Media-Driver starts.
 By default, it...
-* connects to the K8s cluster API
-* looks up it's own namespace
-* finds every pod with an IP address that has the K8s label `aeron.io/media-driver=true`
-* returns the oldest 3 Pods, in order.
-* generates a bootstrap hosts list for Aeron media driver gossip of these 3 IPs.
-* generates a local media driver name in the format `<pod-name>.<namespace>.aeron`
 
-All this configuration is written to a java properties file (default `/etc/aeron/bootstrap.properties`), *which your media-driver process needs to load*.
+- connects to the K8s cluster API
+- looks up it's own namespace
+- finds every pod with an IP address that has the K8s label `aeron.io/media-driver=true`
+- returns the oldest Pods, in order.
+- generates a bootstrap hosts list for Aeron media driver gossip of these IPs.
+- generates a local media driver name in the format `<pod-name>.<namespace>.aeron`
+
+All this configuration is written to a java properties file (default `/etc/aeron/bootstrap.properties`), _which your media-driver process needs to load_.
 
 ## Assumptions made
 
@@ -39,10 +40,11 @@ Your media driver code expects to load `/etc/aeron/bootstrap.properties` ( path 
 ## Configuration
 
 **Environment Variables**:
+
 - `AERON_MD_LABEL_SELECTOR`: Label selector for finding media driver pods (default: "aeron.io/media-driver=true")
 - `AERON_MD_DISCOVERY_PORT`: Discovery port for Aeron (default: 8050)
 - `AERON_MD_BOOTSTRAP_PATH`: Full path to create bootstrap properties file (default: "/etc/aeron/bootstrap.properties")
-- `AERON_MD_MAX_BOOTSTRAP_PODS`: Maximum number of pods to include in bootstrap (default: 3, 0 = unlimited)
+- `AERON_MD_MAX_BOOTSTRAP_PODS`: Maximum number of pods to include in bootstrap (default: 0 = unlimited)
 - `AERON_MD_NAMESPACE`: Kubernetes namespace to scan (default: auto-discover from service account)
 - `AERON_MD_HOSTNAME_SUFFIX`: Suffix for Aeron resolver hostname (default: ".aeron")
 - `HOSTNAME`: Pod hostname (used as the interface to bind to)
@@ -66,12 +68,10 @@ go build
 kubectl apply -f example_usage.yml
 ```
 
-
 ## Things to be aware of.
 
 IPs in frequently updated Kubernetes environments may get re-used. The IP that hosts a Aeron cluster node in a CI environment one moment may be re-used in an unrelated Aeron install the next minute.
 This code generates Aeron hostnames in the format `<pod-name>.<namespace>.aeron` by default, to make sure you're talking to the media-driver you think you are.
-
 
 ## Aeron project implementation, low latency performance tuning and consulting
 
@@ -80,4 +80,3 @@ Also available, Aeron Operator for K8s.
 Contact me via https://www.jmips.co.uk/contact
 
 Copyright © JMIPS Ltd 2025
-
