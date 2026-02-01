@@ -59,7 +59,7 @@ spec:
         # It's best practice to give Aeron dedicated *real* interfaces
         # to both reduce contention and allow busy-polling
         # This is here for testing and may not be required in your configuration
-        k8s.v1.cni.cncf.io/networks: macvlan-conf
+        k8s.v1.cni.cncf.io/networks: aeron
       labels:
         app: example-aeron-k8s-bootstrap
         aeron.io/media-driver: "true"
