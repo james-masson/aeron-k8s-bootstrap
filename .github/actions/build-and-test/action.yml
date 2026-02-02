@@ -58,6 +58,8 @@ runs:
         cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/aeronmd:cache
         cache-to: ${{ inputs.push-containers == 'true' && format('type=registry,ref=ghcr.io/{0}/aeronmd:cache,mode=max', github.repository) || '' }}
 
+
+
     - name: Start minikube
       uses: medyagh/setup-minikube@latest
 

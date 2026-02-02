@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - secondary-interface-handle
   pull_request:
 
 permissions:
@@ -16,7 +17,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-
-      - uses: ./.github/actions/build-and-test
+      - uses: ./.github/actions/build
+      - uses: ./.github/actions/test
         with:
             push-containers: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
