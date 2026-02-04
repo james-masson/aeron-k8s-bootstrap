@@ -7,8 +7,8 @@ on:
   pull_request:
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+  packages: read
 
 jobs:
   build:
@@ -19,4 +19,4 @@ jobs:
 
       - uses: ./.github/actions/build-and-test
         with:
-            push-containers: "false"
+            push-containers: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}

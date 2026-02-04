@@ -23,13 +23,14 @@ Aeron has the concept of distributing it's own name/IP lookup information via go
 
 It's designed to be run as an initContainer before your Aeron Media-Driver starts.
 By default, it...
-* connects to the K8s cluster API
-* looks up it's own namespace
-* finds every pod with an IP address that has the K8s label `aeron.io/media-driver=true`
-* returns the oldest 3 Pods, in order
-* selects the IP from the 3 Pod's `network-status` annotation, if available. Otherwise, selects the Pod IP.
-* generates a bootstrap hosts list for Aeron media driver gossip of these 3 IPs
-* generates a local media driver name in the format `<pod-name>.<namespace>.aeron`
+
+- connects to the K8s cluster API
+- looks up it's own namespace
+- finds every pod with an IP address that has the K8s label `aeron.io/media-driver=true`
+- returns Pods, in order of oldest to youngest
+- selects the IP from the Pod's `network-status` annotation, if available. Otherwise, selects the Pod IP.
+- generates a bootstrap hosts list for Aeron media driver gossip of these IPs
+- generates a local media driver name in the format `<pod-name>.<namespace>.aeron`
 
 All this configuration is written to a java properties file (default `/etc/aeron/bootstrap.properties`), _which your media-driver process needs to load_.
 

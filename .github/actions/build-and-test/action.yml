@@ -75,10 +75,19 @@ runs:
         # Install Multus
         kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
 
-    - name: Deploy to minikube
+    - name: Deploy single-interface to minikube & test
       shell: bash
-      run: kubectl apply -f examples/simple.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+      run: |
+        set -eo pipefail
+        kubectl apply --wait=true -f examples/simple.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+        NAMESPACE=default ./check_bootstrap_success.sh
+        kubectl delete --wait=true -f examples/simple.yml
 
-    - name: Test bootstrapping
+    - name: Deploy multi-interface to minikube & test
       shell: bash
-      run: ./check_bootstrap_success.sh
+      run: |
+        set -eo pipefail
+        kubectl create ns multi
+        kubectl apply --wait=true -n multi -f examples/multus.yml && kubectl -n multi rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+        NAMESPACE=multi ./check_bootstrap_success.sh
+        kubectl delete --wait=true -n multi -f examples/multus.yml
