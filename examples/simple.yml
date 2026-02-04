@@ -28,7 +28,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: aeron-k8s-bootstrap
-    namespace: default
 ---
 # A configmap to hold Aeron properties
 apiVersion: v1
@@ -48,6 +47,7 @@ metadata:
     app: example-aeron-k8s-bootstrap
 spec:
   replicas: 3
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: example-aeron-k8s-bootstrap
