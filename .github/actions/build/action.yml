@@ -1,12 +1,18 @@
-name: "Test"
-description: "Run tests"
+name: "Build"
+description: "Build the Go binary and container image"
+
+inputs:
+  push-containers:
+    description: "Whether to push Docker containers to registry"
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
     - uses: actions/setup-go@v6
       with:
-        go-version: "^1.24"
+        go-version: "^1.25"
 
     - name: Run unit tests
       shell: bash
@@ -31,7 +37,7 @@ runs:
       with:
         context: .
         file: ./Dockerfile
-        push: true
+        push: ${{ inputs.push-containers == 'true' }}
         load: true
         tags: |
           ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }}
@@ -44,7 +50,7 @@ runs:
       with:
         context: .
         file: ./Dockerfile-aeronmd
-        push: true
+        push: ${{ inputs.push-containers == 'true' }}
         load: true
         tags: |
           ghcr.io/${{ github.repository }}/aeronmd:${{ github.sha }}

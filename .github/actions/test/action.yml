@@ -1,5 +1,11 @@
-name: "Build"
-description: "Build the Go binary and container image"
+name: "Test"
+description: "Test the container image"
+
+inputs:
+  test-case:
+    description: "The case to test, in the form of a YAML file in the deployments/tests directory"
+    required: true
+    default: "simple.yml"
 
 runs:
   using: composite
@@ -12,17 +18,34 @@ runs:
       run: |
         set -eo pipefail
 
-        # Load images into minikube
+        echo "Loading images..."
         minikube image load ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:latest
         minikube image load ghcr.io/${{ github.repository }}/aeronmd:latest
+        minikube image list
 
-        # Install Multus
+        echo "Deploying Multus CNI..."
         kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
 
-    - name: Deploy to minikube
-      shell: bash
-      run: kubectl apply -f examples/simple.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+        echo "Deploy NAD and common resources..."
+        kubectl apply -f deployments/common.yml
+        kubectl apply -f deployments/nad.yml
 
-    - name: Test bootstrapping
+    - name: Deploy test to minikube
       shell: bash
-      run: ./check_bootstrap_success.sh
+      run: | 
+        # Set images to the ones built by this repo's build workflow, then apply the updated YAML
+        echo "Deploying test case ${{ inputs.test-case }}..."
+        kubectl set image -f deployments/tests/${{ inputs.test-case }}.yml \
+          aeron-k8s-bootstrap=ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:latest \
+          media-driver=ghcr.io/${{ github.repository }}/aeronmd:latest \
+          --local -o yaml \
+        | kubectl apply -f -
+
+        echo "Waiting for pods to be ready..."
+        kubectl wait --for=condition=Ready --timeout=90s pods -l app=example-aeron-k8s-bootstrap
+
+    - name: Verify aeron-bootstrap
+      shell: bash
+      run: |
+        echo "Verifying aeron-bootstrap works as expected..."
+        ./check_bootstrap_success.sh

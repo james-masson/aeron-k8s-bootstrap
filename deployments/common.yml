@@ -1,0 +1,42 @@
+# Resources common to all tests
+---
+# Permission to look up Pod details
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aeron-k8s-bootstrap
+rules:
+  # Allow reading pods to find bootstrap neighbors
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+---
+# Serviceaccount for aeron-k8s-bootstrap to run under
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aeron-k8s-bootstrap
+---
+# Bind the previously created role to the aeron-k8s-bootstrap service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aeron-k8s-bootstrap
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aeron-k8s-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: aeron-k8s-bootstrap
+    namespace: default
+
+---
+# A configmap to hold Aeron properties
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aeron-k8s-bootstrap
+data:
+  aeron.properties: |
+    aeron.print.configuration=true

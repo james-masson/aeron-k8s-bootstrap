@@ -1,85 +1,13 @@
 ---
-# This configuration runs Aeron on a seperate network
-# and requires Multus to already be installed
-# https://github.com/k8snetworkplumbingwg/multus-cni
-apiVersion: "k8s.cni.cncf.io/v1"
-kind: NetworkAttachmentDefinition
-metadata:
-  name: aeron-network
-spec:
-  config: '{
-      "cniVersion": "0.3.0",
-      "plugins": [
-        {
-          "type": "macvlan",
-          "capabilities": { "ips": true },
-          "master": "eth0",
-          "mode": "bridge",
-          "ipam": {
-            "type": "host-local",
-            "subnet": "192.168.1.0/24",
-            "rangeStart": "192.168.1.200",
-            "rangeEnd": "192.168.1.210",
-            "gateway": "192.168.1.1"
-          }
-        }, 
-        {
-          "type": "tuning",
-          "capabilities": {
-            "mac": true
-          }
-        }
-      ]
-    }'
----
-# Permission to look up Pod details
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: aeron-k8s-bootstrap
-rules:
-  # Allow reading pods to find bootstrap neighbors
-  - apiGroups: [""]
-    resources: [pods]
-    verbs: [get, list]
----
-# Serviceaccount for aeron-k8s-bootstrap to run under
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: aeron-k8s-bootstrap
----
-# Bind the previously created role to the aeron-k8s-bootstrap service account
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: aeron-k8s-bootstrap
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: aeron-k8s-bootstrap
-subjects:
-  - kind: ServiceAccount
-    name: aeron-k8s-bootstrap
-    namespace: default
----
-# A configmap to hold Aeron properties
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: aeron-k8s-bootstrap
-data:
-  aeron.properties: |
-    aeron.print.configuration=true
----
-# Pod with secondary interface, with network-name override
+# Pod with secondary interface, with network-name and interface name defaults (aeron-network and net1)
 apiVersion: v1
 kind: Pod
 metadata:
-  name: secondary-interface-envvar-interface-cluster-0
+  name: example-aeron-k8s-bootstrap-0
   labels:
-    app: secondary-interface-envvar-interface-cluster-0
+    app: example-aeron-k8s-bootstrap
     aeron.io/media-driver: "true"
+    test-case: with-secondary-interface
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
         { "name": "aeron-network",
@@ -108,8 +36,6 @@ spec:
         # example config to alter discovery process goes here
         - name: AERON_MD_DISCOVERY_PORT
           value: "8050"
-        - name: AERON_MD_SECONDARY_INTERFACE_NAME
-          value: "int3"
       volumeMounts:
         - name: aeron-md-config-dir
           mountPath: /etc/aeron
@@ -135,14 +61,14 @@ spec:
     # TODO: Example Aeron consuming code
 
 ---
-# Pod with secondary interface, with network-name override
 apiVersion: v1
 kind: Pod
 metadata:
-  name: secondary-interface-envvar-interface-cluster-1
+  name: example-aeron-k8s-bootstrap-1
   labels:
-    app: secondary-interface-envvar-interface-cluster-1
+    app: example-aeron-k8s-bootstrap
     aeron.io/media-driver: "true"
+    test-case: with-secondary-interface
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
         { "name": "aeron-network",
@@ -171,8 +97,6 @@ spec:
         # example config to alter discovery process goes here
         - name: AERON_MD_DISCOVERY_PORT
           value: "8050"
-        - name: AERON_MD_SECONDARY_INTERFACE_NAME
-          value: "int3"
       volumeMounts:
         - name: aeron-md-config-dir
           mountPath: /etc/aeron
@@ -189,22 +113,23 @@ spec:
         - mountPath: /etc/aeron/bootstrap.properties
           name: aeron-md-config-dir
           subPath: bootstrap.properties
-        - mountPath: /etc/aeron/aeron.properties
-          name: aeron-properties
+        - name: aeron-properties
+          mountPath: /etc/aeron/aeron.properties
           subPath: aeron.properties
         - mountPath: /dev/shm
           name: dshm
 
     # TODO: Example Aeron consuming code
 ---
-# Pod with secondary interface, with network-name override
+# Pod with secondary interface, with network name override (AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME) as "second-network".
 apiVersion: v1
 kind: Pod
 metadata:
-  name: secondary-interface-envvar-interface-cluster-2
+  name: example-aeron-k8s-bootstrap-2
   labels:
-    app: secondary-interface-envvar-interface-cluster-2
+    app: example-aeron-k8s-bootstrap
     aeron.io/media-driver: "true"
+    test-case: with-secondary-interface
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
         { "name": "aeron-network",
@@ -233,11 +158,10 @@ spec:
         # example config to alter discovery process goes here
         - name: AERON_MD_DISCOVERY_PORT
           value: "8050"
-        - name: AERON_MD_SECONDARY_INTERFACE_NAME
-          value: "int3"
       volumeMounts:
         - name: aeron-md-config-dir
           mountPath: /etc/aeron
+
   containers:
     # Aeron Media Driver
     - name: media-driver
@@ -248,12 +172,12 @@ spec:
       # Don't pull, as we pre-build/pre-load the images for CI
       imagePullPolicy: Never
       volumeMounts:
-        - mountPath: /etc/aeron/bootstrap.properties
-          name: aeron-md-config-dir
+        - name: aeron-md-config-dir
+          mountPath: /etc/aeron/bootstrap.properties
           subPath: bootstrap.properties
-        - mountPath: /etc/aeron/aeron.properties
-          name: aeron-properties
+        - name: aeron-properties
           subPath: aeron.properties
+          mountPath: /etc/aeron/aeron.properties
         - mountPath: /dev/shm
           name: dshm
 

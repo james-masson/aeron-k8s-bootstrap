@@ -14,10 +14,23 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/build
-      - uses: ./.github/actions/test
         with:
             push-containers: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        case: 
+          - simple
+          - with_secondary_interface
+          - with_secondary_interface_and_network_env_var
+          - with_secondary_interface_and_interface_env_var
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/test
+        with:
+          test-case: ${{ matrix.case }}
