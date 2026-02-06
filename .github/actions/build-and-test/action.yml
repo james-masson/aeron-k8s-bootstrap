@@ -43,7 +43,7 @@ runs:
           ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }}
           ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:latest
         cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:cache
-        cache-to: ${{ inputs.push-containers == 'true' && 'type=registry,ref=ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:cache,mode=max' || '' }}
+        cache-to: ${{ inputs.push-containers == 'true' && format('type=registry,ref=ghcr.io/{0}/aeron-k8s-bootstrap:cache,mode=max', github.repository) || '' }}
 
     - name: Build aeronmd container
       uses: docker/build-push-action@v6
@@ -56,7 +56,7 @@ runs:
           ghcr.io/${{ github.repository }}/aeronmd:${{ github.sha }}
           ghcr.io/${{ github.repository }}/aeronmd:latest
         cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/aeronmd:cache
-        cache-to: ${{ inputs.push-containers == 'true' && 'type=registry,ref=ghcr.io/${{ github.repository }}/aeronmd:cache,mode=max' || '' }}
+        cache-to: ${{ inputs.push-containers == 'true' && format('type=registry,ref=ghcr.io/{0}/aeronmd:cache,mode=max', github.repository) || '' }}
 
     - name: Start minikube
       uses: medyagh/setup-minikube@latest
