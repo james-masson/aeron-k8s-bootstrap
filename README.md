@@ -49,7 +49,7 @@ Your media driver code expects to load `/etc/aeron/bootstrap.properties` ( path 
 - `AERON_MD_NAMESPACE`: Kubernetes namespace to scan (default: auto-discover from service account)
 - `AERON_MD_HOSTNAME_SUFFIX`: Suffix for Aeron resolver hostname (default: ".aeron")
 - `AERON_MD_SECONDARY_INTERFACE_NAME`: Name of secondary network interface to bind to (default: "net1"). Takes precedence over `AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME`.
-- `AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME`: Name of secondary network to bind to (default: "aeron-network")
+- `AERON_MD_SECONDARY_INTERFACE_NETWORK_NAME`: Name of secondary network to bind to (default: "aeron")
 - `HOSTNAME`: Pod hostname (used as the interface to bind to)
 
 ## Building the containers
@@ -68,7 +68,8 @@ go build
 ## Using the container in K8s
 
 ```
-kubectl apply -f examples/simple.yml
+kubectl apply -f deployments/common.yml
+kubectl apply -f deployments/tests/simple.yml
 ```
 
 ## Things to be aware of.

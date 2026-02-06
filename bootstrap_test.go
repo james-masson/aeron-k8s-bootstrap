@@ -41,7 +41,7 @@ func TestGetMediaDriverPodsWithSecondaryInterface(t *testing.T) {
 		{
 			name: "pod with secondary interface",
 			pods: []corev1.Pod{
-				createTestPodWithSecondaryInterface("aeron-0", "10.0.0.1", "10.0.0.2", "Running", "aeron-network", "net1", time.Now().Add(-2*time.Minute)),
+				createTestPodWithSecondaryInterface("aeron-0", "10.0.0.1", "10.0.0.2", "Running", "aeron", "net1", time.Now().Add(-2*time.Minute)),
 			},
 			expected: []PodInfo{
 				{Name: "aeron-older", IP: "10.0.0.2", CreationTime: time.Now().Add(-10 * time.Minute)},

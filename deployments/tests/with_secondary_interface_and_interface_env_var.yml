@@ -10,7 +10,7 @@ metadata:
     test-case: with-secondary-interface-and-interface-env-var
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
-        { "name": "aeron-network",
+        { "name": "aeron",
           "ips": [ "192.168.1.200/24" ]
         }]'
 spec:
@@ -74,7 +74,7 @@ metadata:
     test-case: with-secondary-interface-and-interface-env-var
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
-        { "name": "aeron-network",
+        { "name": "aeron",
           "ips": [ "192.168.1.201/24" ]
         }]'
 spec:
@@ -137,7 +137,7 @@ metadata:
     test-case: with-secondary-interface-and-interface-env-var
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
-        { "name": "aeron-network",
+        { "name": "aeron",
           "ips": [ "192.168.1.202/24" ]
         }]'
 spec:

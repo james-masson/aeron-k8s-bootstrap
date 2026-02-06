@@ -17,7 +17,7 @@ spec:
         # This enables secondary interfaces for the pods using Multus
         # It's best practice to give Aeron dedicated *real* interfaces
         # to both reduce contention and allow busy-polling
-        k8s.v1.cni.cncf.io/networks: aeron-network
+        k8s.v1.cni.cncf.io/networks: aeron
       labels:
         app: example-aeron-k8s-bootstrap
         aeron.io/media-driver: "true"
