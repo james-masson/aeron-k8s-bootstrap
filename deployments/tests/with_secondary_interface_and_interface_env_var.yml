@@ -9,10 +9,7 @@ metadata:
     aeron.io/media-driver: "true"
     test-case: with-secondary-interface-and-interface-env-var
   annotations:
-    k8s.v1.cni.cncf.io/networks: '[
-        { "name": "aeron",
-          "ips": [ "192.168.1.200/24" ]
-        }]'
+    k8s.v1.cni.cncf.io/networks: aeron
 spec:
   serviceAccount: aeron-k8s-bootstrap
   volumes:
@@ -59,9 +56,6 @@ spec:
           subPath: aeron.properties
         - mountPath: /dev/shm
           name: dshm
-
-    # TODO: Example Aeron consuming code
-
 ---
 # Pod with secondary interface, with network-name override
 apiVersion: v1
@@ -73,10 +67,7 @@ metadata:
     aeron.io/media-driver: "true"
     test-case: with-secondary-interface-and-interface-env-var
   annotations:
-    k8s.v1.cni.cncf.io/networks: '[
-        { "name": "aeron",
-          "ips": [ "192.168.1.201/24" ]
-        }]'
+    k8s.v1.cni.cncf.io/networks: aeron
 spec:
   serviceAccount: aeron-k8s-bootstrap
   volumes:
@@ -123,8 +114,6 @@ spec:
           subPath: aeron.properties
         - mountPath: /dev/shm
           name: dshm
-
-    # TODO: Example Aeron consuming code
 ---
 # Pod with secondary interface, with network-name override
 apiVersion: v1
@@ -136,10 +125,7 @@ metadata:
     aeron.io/media-driver: "true"
     test-case: with-secondary-interface-and-interface-env-var
   annotations:
-    k8s.v1.cni.cncf.io/networks: '[
-        { "name": "aeron",
-          "ips": [ "192.168.1.202/24" ]
-        }]'
+    k8s.v1.cni.cncf.io/networks: aeron
 spec:
   serviceAccount: aeron-k8s-bootstrap
   volumes:
@@ -186,5 +172,3 @@ spec:
           subPath: aeron.properties
         - mountPath: /dev/shm
           name: dshm
-
-    # TODO: Example Aeron consuming code
