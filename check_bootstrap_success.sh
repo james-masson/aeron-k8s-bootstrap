@@ -33,7 +33,7 @@ function f_debug() {
     echo "***************** POD ${ID} DEBUG ***************************"
     kubectl -n ${NAMESPACE} logs example-aeron-k8s-bootstrap-${ID} -c media-driver
     kubectl -n ${NAMESPACE} logs example-aeron-k8s-bootstrap-${ID} -c aeron-k8s-bootstrap
-    kubectl -n ${NAMESPACE} exec -it example-aeron-k8s-bootstrap-${ID} -c media-driver --   AeronStat -w false
+    kubectl -n ${NAMESPACE} exec -i example-aeron-k8s-bootstrap-${ID} -c media-driver --   AeronStat -w false
     kubectl -n ${NAMESPACE} describe pod example-aeron-k8s-bootstrap-${ID}
 }
 

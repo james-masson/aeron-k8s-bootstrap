@@ -73,7 +73,7 @@ runs:
         minikube image load ghcr.io/${{ github.repository }}/aeronmd:latest
 
         # Install Multus
-        kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
+        kubectl apply --wait -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
 
     - name: Deploy single-interface to minikube & test
       shell: bash

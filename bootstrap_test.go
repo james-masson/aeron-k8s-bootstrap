@@ -1096,6 +1096,258 @@ func TestGetCurrentPod(t *testing.T) {
 	}
 }
 
+func TestParseNetworksAnnotation(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotation  string
+		expected    []string
+		expectError bool
+	}{
+		{
+			name:        "empty annotation",
+			annotation:  "",
+			expected:    nil,
+			expectError: false,
+		},
+		{
+			name:        "simple string",
+			annotation:  "mynet",
+			expected:    []string{"mynet"},
+			expectError: false,
+		},
+		{
+			name:        "comma-separated",
+			annotation:  "mynet1,mynet2",
+			expected:    []string{"mynet1", "mynet2"},
+			expectError: false,
+		},
+		{
+			name:        "comma-separated with spaces",
+			annotation:  "mynet1, mynet2, mynet3",
+			expected:    []string{"mynet1", "mynet2", "mynet3"},
+			expectError: false,
+		},
+		{
+			name:        "JSON array format",
+			annotation:  `[{"name":"mynet1"},{"name":"mynet2"}]`,
+			expected:    []string{"mynet1", "mynet2"},
+			expectError: false,
+		},
+		{
+			name:        "JSON array format with single network",
+			annotation:  `[{"name":"custom-network"}]`,
+			expected:    []string{"custom-network"},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseNetworksAnnotation(tt.annotation)
+
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got none")
+				return
+			}
+
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d networks, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for i, name := range result {
+				if name != tt.expected[i] {
+					t.Errorf("Network %d: expected %s, got %s", i, tt.expected[i], name)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateMultusNetworkStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		pod      corev1.Pod
+		expected bool
+	}{
+		{
+			name: "pod without networks annotation - valid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "pod-no-multus",
+					Annotations: map[string]string{},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with networks annotation but no network-status - invalid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pod-missing-status",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks": "mynet",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with networks and matching network-status with IP - valid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pod-valid-multus",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        "mynet",
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"mynet","interface":"net1","ips":["10.0.0.2"]}]`,
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with networks but network-status missing that network - invalid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pod-wrong-network",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        "mynet",
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"othernet","interface":"net1","ips":["10.0.0.2"]}]`,
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with networks and network-status but no IP - invalid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pod-no-ip",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        "mynet",
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"mynet","interface":"net1","ips":[]}]`,
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with multiple networks all valid - valid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pod-multi-valid",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        "net1,net2",
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"net1","interface":"net1","ips":["10.0.0.1"]},{"name":"net2","interface":"net2","ips":["10.0.0.2"]}]`,
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with multiple networks but one missing - invalid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pod-multi-invalid",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        "net1,net2",
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"net1","interface":"net1","ips":["10.0.0.1"]}]`,
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with JSON array networks format - valid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pod-json-format",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        `[{"name":"custom-net"}]`,
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"custom-net","interface":"net1","ips":["10.0.0.3"]}]`,
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := validateMultusNetworkStatus(tt.pod)
+			if result != tt.expected {
+				t.Errorf("validateMultusNetworkStatus() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetMediaDriverPodsWithMultusValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		pods     []corev1.Pod
+		expected int
+	}{
+		{
+			name: "pods without multus annotations included",
+			pods: []corev1.Pod{
+				createTestPod("aeron-1", "10.0.0.1", "Running", time.Now().Add(-5*time.Minute)),
+			},
+			expected: 1,
+		},
+		{
+			name: "pods with valid multus annotations included",
+			pods: []corev1.Pod{
+				createTestPodWithMultus("aeron-1", "10.0.0.1", "mynet", "10.0.0.2", time.Now().Add(-5*time.Minute)),
+			},
+			expected: 1,
+		},
+		{
+			name: "pods with invalid multus annotations excluded",
+			pods: []corev1.Pod{
+				createTestPodWithInvalidMultus("aeron-1", "10.0.0.1", time.Now().Add(-5*time.Minute)),
+			},
+			expected: 0,
+		},
+		{
+			name: "mix of valid and invalid multus pods",
+			pods: []corev1.Pod{
+				createTestPod("aeron-no-multus", "10.0.0.1", "Running", time.Now().Add(-10*time.Minute)),
+				createTestPodWithMultus("aeron-valid-multus", "10.0.0.2", "mynet", "10.0.0.3", time.Now().Add(-5*time.Minute)),
+				createTestPodWithInvalidMultus("aeron-invalid-multus", "10.0.0.4", time.Now().Add(-3*time.Minute)),
+			},
+			expected: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientset := fake.NewSimpleClientset()
+
+			for _, pod := range tt.pods {
+				_, err := clientset.CoreV1().Pods("test-namespace").Create(context.TODO(), &pod, metav1.CreateOptions{})
+				if err != nil {
+					t.Fatalf("Failed to create test pod: %v", err)
+				}
+			}
+
+			result, err := getMediaDriverPods(clientset, "test-namespace", "aeron.io/media-driver=true", 0)
+			if err != nil {
+				t.Fatalf("getMediaDriverPods() error = %v", err)
+			}
+
+			if len(result) != tt.expected {
+				t.Errorf("Expected %d pods, got %d", tt.expected, len(result))
+			}
+		})
+	}
+}
+
 // Helper functions for creating test pods
 func createTestPod(name, ip, phase string, creationTime time.Time) corev1.Pod {
 	return createTestPodWithLabel(name, ip, phase, creationTime, "aeron.io/media-driver", "true")
@@ -1138,6 +1390,46 @@ func createTestPodWithSecondaryInterface(name, primaryIP, secondaryIP, phase str
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodPhase(phase),
+			PodIP: primaryIP,
+		},
+	}
+}
+
+func createTestPodWithMultus(name, primaryIP, networkName, secondaryIP string, creationTime time.Time) corev1.Pod {
+	return corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"aeron.io/media-driver": "true",
+			},
+			CreationTimestamp: metav1.NewTime(creationTime),
+			Annotations: map[string]string{
+				"k8s.v1.cni.cncf.io/networks":       networkName,
+				"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf(`[{"name":"%s","interface":"net1","ips":["%s"]}]`, networkName, secondaryIP),
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			PodIP: primaryIP,
+		},
+	}
+}
+
+func createTestPodWithInvalidMultus(name, primaryIP string, creationTime time.Time) corev1.Pod {
+	return corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"aeron.io/media-driver": "true",
+			},
+			CreationTimestamp: metav1.NewTime(creationTime),
+			Annotations: map[string]string{
+				"k8s.v1.cni.cncf.io/networks": "mynet",
+				// Missing network-status annotation - this makes it invalid
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
 			PodIP: primaryIP,
 		},
 	}
