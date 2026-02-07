@@ -236,7 +236,11 @@ func validateMultusNetworkStatus(pod v1.Pod) bool {
 	for _, expectedNetwork := range expectedNetworks {
 		found := false
 		for _, status := range networkStatuses {
-			if status.Name == expectedNetwork {
+			// Match either exact name or namespace-qualified name (namespace/network)
+			nameMatches := status.Name == expectedNetwork ||
+				status.Name == pod.Namespace+"/"+expectedNetwork
+
+			if nameMatches {
 				if len(status.IPs) == 0 {
 					log.Printf("Warning: Pod %s has network %s in status but no IP address - skipping as bootstrap candidate",
 						pod.Name, expectedNetwork)

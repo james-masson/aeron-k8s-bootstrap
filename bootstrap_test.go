@@ -1275,6 +1275,34 @@ func TestValidateMultusNetworkStatus(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "pod with namespace-qualified network name in status - valid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-namespace-qualified",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        "aeron",
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"test-ns/aeron","interface":"net1","ips":["192.168.1.201"]}]`,
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with wrong namespace in qualified network name - invalid",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-wrong-namespace",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						"k8s.v1.cni.cncf.io/networks":        "aeron",
+						"k8s.v1.cni.cncf.io/network-status": `[{"name":"other-ns/aeron","interface":"net1","ips":["192.168.1.201"]}]`,
+					},
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
