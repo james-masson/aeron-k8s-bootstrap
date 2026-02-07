@@ -51,7 +51,8 @@ type NetworkStatus struct {
 }
 
 const (
-	networkStatusAnnotation       = "k8s.v1.cni.cncf.io/network-status"
+	networkStatusAnnotation = "k8s.v1.cni.cncf.io/network-status"
+	networksAnnotation      = "k8s.v1.cni.cncf.io/networks"
 	defaultSecondaryInterfaceName = "net1"
 )
 
@@ -100,6 +101,10 @@ func getMediaDriverPods(clientset kubernetes.Interface, namespace, labelSelector
 	var runningPods []PodInfo
 
 	for _, pod := range pods.Items {
+		// Validate Multus network configuration if present
+		if !validateMultusNetworkStatus(pod) {
+			continue
+		}
 
 		// get secondary interface IP if available
 		// fallback to primary PodIP if secondary is not found
@@ -157,6 +162,102 @@ func unmarshalNetworkStatus(annotation string) ([]NetworkStatus, error) {
 		return nil, fmt.Errorf("error unmarshaling network status: %v", err)
 	}
 	return networks, nil
+}
+
+// parseNetworksAnnotation extracts network names from the k8s.v1.cni.cncf.io/networks annotation
+// The annotation can be in several formats:
+// - Simple string: "mynet"
+// - Comma-separated: "mynet1,mynet2"
+// - JSON array of objects: [{"name":"mynet1"},{"name":"mynet2"}]
+func parseNetworksAnnotation(annotation string) ([]string, error) {
+	if annotation == "" {
+		return nil, nil
+	}
+
+	// Try parsing as JSON array first
+	var networkObjects []map[string]any
+	if err := json.Unmarshal([]byte(annotation), &networkObjects); err == nil {
+		var names []string
+		for _, obj := range networkObjects {
+			if name, ok := obj["name"].(string); ok {
+				names = append(names, name)
+			}
+		}
+		return names, nil
+	}
+
+	// Fall back to simple string or comma-separated format
+	networks := strings.Split(annotation, ",")
+	var names []string
+	for _, network := range networks {
+		network = strings.TrimSpace(network)
+		if network != "" {
+			names = append(names, network)
+		}
+	}
+	return names, nil
+}
+
+// validateMultusNetworkStatus checks if a pod with Multus network annotations has valid network status
+// Returns true if the pod is valid for bootstrap, false if it should be skipped
+func validateMultusNetworkStatus(pod v1.Pod) bool {
+	networksAnnotation := pod.Annotations[networksAnnotation]
+
+	// If no networks annotation, pod is valid
+	if networksAnnotation == "" {
+		return true
+	}
+
+	// Pod has networks annotation, so it must also have network-status
+	networkStatusAnnotation := pod.Annotations[networkStatusAnnotation]
+	if networkStatusAnnotation == "" {
+		log.Printf("Warning: Pod %s has %s annotation but missing %s annotation - skipping as bootstrap candidate",
+			pod.Name, networksAnnotation, networkStatusAnnotation)
+		return false
+	}
+
+	// Parse the networks annotation to get expected network names
+	expectedNetworks, err := parseNetworksAnnotation(networksAnnotation)
+	if err != nil {
+		log.Printf("Warning: Pod %s has invalid %s annotation format: %v - skipping as bootstrap candidate",
+			pod.Name, networksAnnotation, err)
+		return false
+	}
+
+	// Parse the network status
+	networkStatuses, err := unmarshalNetworkStatus(networkStatusAnnotation)
+	if err != nil {
+		log.Printf("Warning: Pod %s has invalid %s annotation: %v - skipping as bootstrap candidate",
+			pod.Name, networkStatusAnnotation, err)
+		return false
+	}
+
+	// Check that each expected network has a corresponding status with an IP
+	for _, expectedNetwork := range expectedNetworks {
+		found := false
+		for _, status := range networkStatuses {
+			// Match either exact name or namespace-qualified name (namespace/network)
+			nameMatches := status.Name == expectedNetwork ||
+				status.Name == pod.Namespace+"/"+expectedNetwork
+
+			if nameMatches {
+				if len(status.IPs) == 0 {
+					log.Printf("Warning: Pod %s has network %s in status but no IP address - skipping as bootstrap candidate",
+						pod.Name, expectedNetwork)
+					return false
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Printf("Warning: Pod %s has network %s in %s but not in %s - skipping as bootstrap candidate",
+				pod.Name, expectedNetwork, networksAnnotation, networkStatusAnnotation)
+			return false
+		}
+	}
+
+	return true
 }
 
 // getIP retrieves the IP address for the secondary interface from the pod's network status annotation

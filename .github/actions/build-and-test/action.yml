@@ -73,13 +73,13 @@ runs:
         minikube image load ghcr.io/${{ github.repository }}/aeronmd:latest
 
         # Install Multus
-        kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
+        kubectl apply --wait -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
 
     - name: Deploy single-interface to minikube & test
       shell: bash
       run: |
         set -eo pipefail
-        kubectl apply --wait=true -f examples/simple.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+        kubectl apply --wait=true -f examples/simple.yml && kubectl rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s || ./dump_debug.sh
         NAMESPACE=default ./check_bootstrap_success.sh
         kubectl delete --wait=true -f examples/simple.yml
 
@@ -88,6 +88,6 @@ runs:
       run: |
         set -eo pipefail
         kubectl create ns multi
-        kubectl apply --wait=true -n multi -f examples/multus.yml && kubectl -n multi rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s
+        kubectl apply --wait=true -n multi -f examples/multus.yml && kubectl -n multi rollout status statefulsets.apps example-aeron-k8s-bootstrap --timeout=90s || NAMESPACE=multi ./dump_debug.sh
         NAMESPACE=multi ./check_bootstrap_success.sh
         kubectl delete --wait=true -n multi -f examples/multus.yml

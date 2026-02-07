@@ -1,0 +1,1 @@
+check_bootstrap_success.sh
