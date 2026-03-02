@@ -80,6 +80,6 @@ This code generates Aeron hostnames in the format `<pod-name>.<namespace>.aeron`
 
 Also available, Aeron Operator for K8s.
 
-Contact me via https://www.jmips.co.uk/contact
+Contact me via https://www.jmips.co.uk/#contact
 
 Copyright © JMIPS Ltd 2025
