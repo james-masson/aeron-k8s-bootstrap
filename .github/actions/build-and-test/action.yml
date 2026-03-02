@@ -61,10 +61,13 @@ runs:
     - name: Start minikube
       uses: medyagh/setup-minikube@latest
 
-    - name: Load everything to minikube
+    - name: Prepare minikube
       shell: bash
       run: |
         set -eo pipefail
+
+        # Install Multus
+        kubectl apply --wait -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
 
         # Load images into minikube
         minikube image load ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:${{ github.sha }}
@@ -72,8 +75,9 @@ runs:
         minikube image load ghcr.io/${{ github.repository }}/aeron-k8s-bootstrap:latest
         minikube image load ghcr.io/${{ github.repository }}/aeronmd:latest
 
-        # Install Multus
-        kubectl apply --wait -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
+        # Wait for Multus daemonset to be up
+        kubectl rollout status daemonset/kube-multus-ds -n kube-system --timeout=120s
+
 
     - name: Deploy single-interface to minikube & test
       shell: bash
